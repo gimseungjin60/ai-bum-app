@@ -7,19 +7,8 @@ import {
   Image,
   Animated,
 } from 'react-native';
-import {
-  Edit3,
-  ShieldCheck,
-  ChevronRight,
-  Tablet,
-  Monitor,
-  Sun,
-  Lock,
-  LogOut,
-  Trash2,
-  UserPlus,
-} from 'lucide-react-native';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import Icon from '../components/Icon';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 
@@ -58,7 +47,7 @@ export default function SettingsScreen() {
                   style={styles.avatar}
                 />
                 <View style={styles.editBadge}>
-                  <Edit3 size={10} color={colors.white} />
+                  <Icon name="Edit3" size={10} color={colors.white} />
                 </View>
               </View>
               <View>
@@ -71,10 +60,7 @@ export default function SettingsScreen() {
           </Card>
           <Card style={styles.securityCard}>
             <Text style={styles.securityLabel}>보안 상태</Text>
-            <ShieldCheck
-              size={28}
-              color={colors.onSurface}
-            />
+            <Icon name="ShieldCheck" size={28} color={colors.onSurface} />
             <Text style={styles.securityValue}>최상</Text>
           </Card>
         </View>
@@ -89,7 +75,7 @@ export default function SettingsScreen() {
           </View>
           <HapticButton>
             <View style={styles.inviteBtn}>
-              <UserPlus size={14} color={colors.primaryDark} />
+              <Icon name="UserPlus" size={14} color={colors.primaryDark} />
               <Text style={styles.inviteBtnText}>초대하기</Text>
             </View>
           </HapticButton>
@@ -105,7 +91,7 @@ export default function SettingsScreen() {
                 <Text style={styles.memberName}>{member.name}</Text>
                 <Text style={styles.memberRole}>{member.role}</Text>
               </View>
-              <ChevronRight size={20} color={colors.onSurfaceVariant} />
+              <Icon name="ChevronRight" size={20} color={colors.onSurfaceVariant} />
             </View>
           </HapticButton>
         ))}
@@ -117,7 +103,7 @@ export default function SettingsScreen() {
         <Card style={styles.deviceCard}>
           <View style={styles.deviceHeader}>
             <View style={styles.deviceIconWrap}>
-              <Tablet size={22} color={colors.onSurface} />
+              <Icon name="Tablet" size={22} color={colors.onSurface} />
             </View>
             <View style={{ flex: 1 }}>
               <View style={styles.deviceTitleRow}>
@@ -133,11 +119,11 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.deviceActions}>
                 <HapticButton style={styles.deviceBtn}>
-                  <Monitor size={14} color={colors.onSurface} />
+                  <Icon name="Monitor" size={14} color={colors.onSurface} />
                   <Text style={styles.deviceBtnText}>화면 설정</Text>
                 </HapticButton>
                 <HapticButton style={styles.deviceBtn}>
-                  <Sun size={14} color={colors.onSurface} />
+                  <Icon name="Sun" size={14} color={colors.onSurface} />
                   <Text style={styles.deviceBtnText}>밝기 조절</Text>
                 </HapticButton>
               </View>
@@ -148,7 +134,7 @@ export default function SettingsScreen() {
         {/* Privacy Notice */}
         <View style={styles.privacyCard}>
           <View style={styles.privacyIcon}>
-            <Lock size={22} color={colors.primaryDark} />
+            <Icon name="Lock" size={22} color={colors.primaryDark} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.privacyTitle}>개인정보 보호 약속</Text>
@@ -162,11 +148,11 @@ export default function SettingsScreen() {
         {/* Danger Zone */}
         <View style={styles.dangerZone}>
           <HapticButton style={styles.logoutBtn}>
-            <LogOut size={16} color={colors.stone400} />
+            <Icon name="LogOut" size={16} color={colors.stone400} />
             <Text style={styles.logoutText}>로그아웃</Text>
           </HapticButton>
           <HapticButton style={styles.deleteBtn}>
-            <Trash2 size={14} color={colors.error + '99'} />
+            <Icon name="Trash2" size={14} color={'#BA1A1A99'} />
             <Text style={styles.deleteText}>계정 탈퇴 및 데이터 삭제</Text>
           </HapticButton>
         </View>
@@ -201,7 +187,7 @@ const styles = StyleSheet.create({
     right: -6,
     backgroundColor: colors.primaryDark,
     padding: 6,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -210,7 +196,7 @@ const styles = StyleSheet.create({
   },
   profileName: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   profileSub: {
@@ -227,12 +213,12 @@ const styles = StyleSheet.create({
   },
   securityLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSecondaryContainer,
   },
   securityValue: {
     fontSize: fontSize.lg,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
     color: colors.onSecondaryContainer,
   },
   sectionHeader: {
@@ -243,7 +229,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   sectionSub: {
@@ -258,7 +244,7 @@ const styles = StyleSheet.create({
   },
   inviteBtnText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.primaryDark,
   },
   memberCard: {
@@ -275,10 +261,10 @@ const styles = StyleSheet.create({
   memberAvatar: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   memberName: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   memberRole: {
@@ -289,7 +275,7 @@ const styles = StyleSheet.create({
   deviceCard: {
     marginTop: spacing.md,
     borderWidth: 2,
-    borderColor: colors.outlineVariant + '20',
+    borderColor: 'rgba(224,191,189,0.13)',
   },
   deviceHeader: {
     flexDirection: 'row',
@@ -307,7 +293,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   deviceName: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   deviceSub: {
@@ -319,11 +305,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.emerald100,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   connectedText: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.emerald700,
   },
   deviceActions: {
@@ -343,7 +329,7 @@ const styles = StyleSheet.create({
   },
   deviceBtnText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
     color: colors.onSurface,
   },
   privacyCard: {
@@ -358,13 +344,13 @@ const styles = StyleSheet.create({
   privacyIcon: {
     width: 48,
     height: 48,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     backgroundColor: 'rgba(255,255,255,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   privacyTitle: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   privacyDesc: {
@@ -385,7 +371,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.stone400,
   },
   deleteBtn: {
@@ -395,7 +381,7 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.error + '99',
+    fontWeight: '500',
+    color: '#BA1A1A99',
   },
 });

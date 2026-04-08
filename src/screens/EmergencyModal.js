@@ -7,10 +7,9 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Phone, Users, X, AlertTriangle } from 'lucide-react-native';
+import Icon from '../components/Icon';
 import * as Haptics from 'expo-haptics';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
 
 const { width } = Dimensions.get('window');
@@ -76,7 +75,7 @@ export default function EmergencyModal({ visible, onClose }) {
         >
           {/* Close Button */}
           <HapticButton onPress={onClose} style={styles.closeBtn}>
-            <X size={20} color={colors.onSurfaceVariant} />
+            <Icon name="X" size={20} color={colors.onSurfaceVariant} />
           </HapticButton>
 
           <View style={styles.content}>
@@ -90,7 +89,7 @@ export default function EmergencyModal({ visible, onClose }) {
               <View style={styles.iconRing1} />
               <View style={styles.iconRing2} />
               <View style={styles.iconCenter}>
-                <AlertTriangle size={48} color={colors.primaryDark} />
+                <Icon name="AlertTriangle" size={48} color={colors.primaryDark} />
               </View>
             </Animated.View>
 
@@ -105,19 +104,14 @@ export default function EmergencyModal({ visible, onClose }) {
 
             {/* Action Buttons */}
             <HapticButton hapticType="heavy" onPress={onClose}>
-              <LinearGradient
-                colors={[colors.primaryDark, colors.primaryContainer]}
-                style={styles.callBtn}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <Phone size={20} color={colors.white} />
+              <View style={[styles.callBtn, { backgroundColor: colors.primaryDark }]}>
+                <Icon name="Phone" size={20} color={colors.white} />
                 <Text style={styles.callBtnText}>전화하기</Text>
-              </LinearGradient>
+              </View>
             </HapticButton>
 
             <HapticButton hapticType="medium" onPress={onClose} style={styles.familyBtn}>
-              <Users size={20} color={colors.onSurface} />
+              <Icon name="Users" size={20} color={colors.onSurface} />
               <Text style={styles.familyBtnText}>가족에게 알리기</Text>
             </HapticButton>
 
@@ -127,12 +121,7 @@ export default function EmergencyModal({ visible, onClose }) {
           </View>
 
           {/* Bottom Accent */}
-          <LinearGradient
-            colors={[colors.primaryDark, colors.primaryContainer, colors.secondaryContainer]}
-            style={styles.accentBar}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-          />
+          <View style={[styles.accentBar, { backgroundColor: colors.primaryDark }]} />
         </Animated.View>
       </View>
     </Modal>
@@ -165,7 +154,7 @@ const styles = StyleSheet.create({
     right: 20,
     width: 40,
     height: 40,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     backgroundColor: colors.surfaceContainerHigh,
     alignItems: 'center',
     justifyContent: 'center',
@@ -188,14 +177,14 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: colors.primaryDark + '15',
+    backgroundColor: 'rgba(174,47,52,0.08)',
   },
   iconRing2: {
     position: 'absolute',
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primaryDark + '25',
+    backgroundColor: 'rgba(174,47,52,0.15)',
   },
   iconCenter: {
     width: 96,
@@ -206,12 +195,12 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: fontWeight.extrabold,
+    fontWeight: '800',
     color: colors.primaryDark,
     marginBottom: spacing.md,
   },
   messageBox: {
-    backgroundColor: colors.surfaceContainerHigh + '80',
+    backgroundColor: 'rgba(238,231,223,0.5)',
     padding: 20,
     borderRadius: borderRadius.lg,
     marginBottom: spacing.xl,
@@ -229,12 +218,12 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
     height: 56,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     marginBottom: spacing.sm,
   },
   callBtnText: {
     color: colors.white,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     fontSize: fontSize.xl,
   },
   familyBtn: {
@@ -244,11 +233,11 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
     height: 56,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     backgroundColor: colors.secondaryFixedDim,
   },
   familyBtnText: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     fontSize: fontSize.xl,
     color: colors.onSurface,
   },
@@ -256,7 +245,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     fontSize: fontSize.md,
     color: colors.onSurfaceVariant,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     textAlign: 'center',
   },
   accentBar: {

@@ -1,16 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Home,
-  BarChart3,
-  Image as ImageIcon,
-  Bell,
-  Settings,
-} from 'lucide-react-native';
+import Icon from '../components/Icon';
 import * as Haptics from 'expo-haptics';
-import { colors, borderRadius, fontSize, fontWeight } from '../theme';
+import { colors, borderRadius, fontSize } from '../theme';
 
 import HomeScreen from '../screens/HomeScreen';
 import ReportScreen from '../screens/ReportScreen';
@@ -22,37 +15,30 @@ import EmergencyModal from '../screens/EmergencyModal';
 const Tab = createBottomTabNavigator();
 
 const TAB_CONFIG = {
-  Home: { label: '홈', Icon: Home },
-  Report: { label: '리포트', Icon: BarChart3 },
-  Gallery: { label: '갤러리', Icon: ImageIcon },
-  Notifications: { label: '알림', Icon: Bell, badge: true },
-  Settings: { label: '설정', Icon: Settings },
+  Home: { label: '홈', icon: 'Home' },
+  Report: { label: '리포트', icon: 'BarChart3' },
+  Gallery: { label: '갤러리', icon: 'Image' },
+  Notifications: { label: '알림', icon: 'Bell', badge: true },
+  Settings: { label: '설정', icon: 'Settings' },
 };
 
 function TabBarIcon({ route, focused }) {
-  const { label, Icon, badge } = TAB_CONFIG[route.name];
+  const { label, icon, badge } = TAB_CONFIG[route.name];
 
   if (focused) {
     return (
-      <LinearGradient
-        colors={[colors.gradientStart, colors.gradientEnd]}
-        style={styles.activeTab}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Icon size={20} color={colors.white} />
+      <View style={styles.activeTab}>
+        <Icon name={icon} size={20} color="#FFFFFF" />
         <Text style={styles.activeLabel}>{label}</Text>
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
     <View style={styles.inactiveTab}>
-      <Icon size={22} color={colors.stone400} />
+      <Icon name={icon} size={22} color="#A8A29E" />
       <Text style={styles.inactiveLabel}>{label}</Text>
-      {badge && (
-        <View style={styles.badge} />
-      )}
+      {badge ? <View style={styles.badge} /> : null}
     </View>
   );
 }
@@ -66,16 +52,13 @@ export default function TabNavigator() {
         screenOptions={({ route }) => ({
           headerShown: true,
           headerStyle: {
-            backgroundColor: 'rgba(255,255,255,0.85)',
+            backgroundColor: '#FFFFFF',
             elevation: 0,
-            shadowColor: '#EA580C',
-            shadowOpacity: 0.05,
-            shadowOffset: { width: 0, height: 2 },
-            shadowRadius: 8,
+            shadowOpacity: 0,
           },
           headerTitleStyle: {
-            fontWeight: fontWeight.bold,
-            fontSize: fontSize.xl,
+            fontWeight: '700',
+            fontSize: 18,
             color: '#9A3412',
           },
           headerTitle: '오늘의 소중한 순간',
@@ -88,7 +71,7 @@ export default function TabNavigator() {
                   setEmergencyVisible(true);
                 }}
               >
-                <Home size={20} color="#C2410C" />
+                <Icon name="Home" size={20} color="#C2410C" />
               </View>
             </View>
           ),
@@ -100,7 +83,7 @@ export default function TabNavigator() {
             </View>
           ),
           tabBarIcon: ({ focused }) => (
-            <TabBarIcon route={route} focused={focused} />
+            <TabBarIcon route={route} focused={!!focused} />
           ),
           tabBarShowLabel: false,
           tabBarStyle: styles.tabBar,
@@ -118,7 +101,7 @@ export default function TabNavigator() {
         <Tab.Screen name="Settings" component={SettingsScreen} />
       </Tab.Navigator>
       <EmergencyModal
-        visible={emergencyVisible}
+        visible={!!emergencyVisible}
         onClose={() => setEmergencyVisible(false)}
       />
     </>
@@ -129,14 +112,10 @@ const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
     height: 72,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: '#FFFFFFEA',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     borderTopWidth: 0,
-    shadowColor: '#1E1B17',
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 24,
     elevation: 20,
     paddingHorizontal: 8,
     paddingTop: 4,
@@ -147,28 +126,23 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 18,
     paddingVertical: 10,
-    borderRadius: borderRadius.full,
-    shadowColor: '#EA580C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    borderRadius: 9999,
+    backgroundColor: '#EA580C',
   },
   activeLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-    color: colors.white,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   inactiveTab: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
-    position: 'relative',
   },
   inactiveLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
-    color: colors.stone400,
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#A8A29E',
     marginTop: 4,
   },
   badge: {
@@ -178,7 +152,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#AE2F34',
   },
   headerRight: {
     marginRight: 16,
@@ -186,7 +160,7 @@ const styles = StyleSheet.create({
   emergencyBtn: {
     width: 36,
     height: 36,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -196,10 +170,10 @@ const styles = StyleSheet.create({
   headerAvatar: {
     width: 36,
     height: 36,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceContainer,
+    borderRadius: 9999,
+    backgroundColor: '#F4EDE5',
     borderWidth: 2,
-    borderColor: colors.primaryContainer,
+    borderColor: '#FF6B6B',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

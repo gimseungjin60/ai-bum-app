@@ -7,16 +7,8 @@ import {
   Image,
   Animated,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Camera,
-  MessageCircle,
-  History,
-  Heart,
-  Scan,
-  Users,
-} from 'lucide-react-native';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import Icon from '../components/Icon';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 
@@ -69,28 +61,23 @@ export default function HomeScreen() {
               <Text style={styles.heroSub}>온라인 상태</Text>
             </View>
             <View style={styles.lastActiveChip}>
-              <History size={14} color={colors.onSurface} />
+              <Icon name="History" size={14} color={colors.onSurface} />
               <Text style={styles.lastActiveText}>30분 전 얼굴 감지</Text>
             </View>
           </View>
           <View style={styles.heroBottom}>
             <View style={styles.familyIcons}>
               <View style={styles.familyIcon}>
-                <Users size={14} color={colors.onSurface} />
+                <Icon name="Users" size={14} color={colors.onSurface} />
               </View>
               <View style={[styles.familyIcon, { marginLeft: -8 }]}>
-                <Heart size={14} color={colors.primary} />
+                <Icon name="Heart" size={14} color={colors.primary} />
               </View>
             </View>
             <HapticButton hapticType="medium">
-              <LinearGradient
-                colors={[colors.primaryDark, colors.primaryContainer]}
-                style={styles.checkBtn}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
+              <View style={[styles.checkBtn, { backgroundColor: colors.primaryDark }]}>
                 <Text style={styles.checkBtnText}>안부 확인하기</Text>
-              </LinearGradient>
+              </View>
             </HapticButton>
           </View>
         </View>
@@ -116,7 +103,7 @@ export default function HomeScreen() {
           <Card style={styles.gridCard}>
             <View style={styles.gridCardHeader}>
               <Text style={styles.gridLabel}>얼굴 감지</Text>
-              <Scan size={20} color={colors.tertiary} />
+              <Icon name="Scan" size={20} color={colors.tertiary} />
             </View>
             <View style={styles.statRow}>
               <Text style={styles.statLabel}>감지 시간</Text>
@@ -154,7 +141,7 @@ export default function HomeScreen() {
                     styles.barLabel,
                     item.active && {
                       color: colors.gradientStart,
-                      fontWeight: fontWeight.bold,
+                      fontWeight: '700',
                     },
                   ]}
                 >
@@ -168,11 +155,11 @@ export default function HomeScreen() {
         {/* Quick Actions */}
         <View style={styles.gridRow}>
           <HapticButton style={styles.actionCard}>
-            <Camera size={28} color={colors.gradientStart} />
+            <Icon name="Camera" size={28} color={colors.gradientStart} />
             <Text style={styles.actionText}>사진 올리기</Text>
           </HapticButton>
           <HapticButton style={styles.actionCard}>
-            <MessageCircle size={28} color={colors.gradientStart} />
+            <Icon name="MessageCircle" size={28} color={colors.gradientStart} />
             <Text style={styles.actionText}>메시지 보내기</Text>
           </HapticButton>
         </View>
@@ -204,7 +191,7 @@ const styles = StyleSheet.create({
   },
   heroName: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   heroSub: {
@@ -219,9 +206,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.8)',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
-  lastActiveText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  lastActiveText: { fontSize: fontSize.xs, fontWeight: '600' },
   heroBottom: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -232,7 +219,7 @@ const styles = StyleSheet.create({
   familyIcon: {
     width: 32,
     height: 32,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     backgroundColor: colors.white,
     borderWidth: 2,
     borderColor: colors.secondaryContainer,
@@ -242,11 +229,11 @@ const styles = StyleSheet.create({
   checkBtn: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   checkBtnText: {
     color: colors.white,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     fontSize: fontSize.md,
   },
   gridRow: {
@@ -264,15 +251,15 @@ const styles = StyleSheet.create({
   gridLabel: {
     fontSize: fontSize.md,
     color: colors.stone500,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
   },
   scoreRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
   scoreValue: {
     fontSize: 36,
-    fontWeight: fontWeight.extrabold,
+    fontWeight: '800',
     color: colors.gradientStart,
   },
-  scoreUnit: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.stone400 },
+  scoreUnit: { fontSize: fontSize.md, fontWeight: '700', color: colors.stone400 },
   gridDesc: { fontSize: fontSize.xs, color: colors.stone500, marginTop: 8 },
   statRow: {
     flexDirection: 'row',
@@ -282,12 +269,12 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
     color: colors.stone500,
   },
   statValue: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.gradientStart,
   },
   chartCard: { marginBottom: spacing.lg, padding: spacing.lg },
@@ -299,7 +286,7 @@ const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   chartSub: { fontSize: fontSize.xs, color: colors.stone400 },
@@ -323,7 +310,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.gradientStart,
   },
 });

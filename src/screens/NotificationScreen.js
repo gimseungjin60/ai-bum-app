@@ -7,16 +7,8 @@ import {
   Image,
   Animated,
 } from 'react-native';
-import {
-  AlertTriangle,
-  Zap,
-  Bell,
-  Heart,
-  Share2,
-  LayoutGrid,
-  Phone,
-} from 'lucide-react-native';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import Icon from '../components/Icon';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
@@ -55,14 +47,10 @@ const MOCK_NOTIFICATIONS = [
 ];
 
 function getFilterIcon(name, color) {
-  const props = { size: 14, color: color || colors.white };
-  switch (name) {
-    case 'grid': return <LayoutGrid {...props} />;
-    case 'alert': return <AlertTriangle {...props} />;
-    case 'zap': return <Zap {...props} />;
-    case 'bell': return <Bell {...props} />;
-    default: return null;
-  }
+  const iconMap = { grid: 'LayoutGrid', alert: 'AlertTriangle', zap: 'Zap', bell: 'Bell' };
+  const iconName = iconMap[name];
+  if (!iconName) return null;
+  return <Icon name={iconName} size={14} color={color || colors.white} />;
 }
 
 export default function NotificationScreen() {
@@ -145,7 +133,7 @@ export default function NotificationScreen() {
               <View key={item.id} style={styles.emergencyCard}>
                 <View style={styles.emergencyHeader}>
                   <View style={styles.emergencyIconWrap}>
-                    <AlertTriangle size={22} color={colors.white} />
+                    <Icon name="AlertTriangle" size={22} color={colors.white} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.emergencyLabel}>긴급 알림</Text>
@@ -175,20 +163,20 @@ export default function NotificationScreen() {
             return (
               <View key={item.id} style={styles.warningCard}>
                 <View style={styles.warningLabelRow}>
-                  <Zap size={14} color={colors.tertiary} />
+                  <Icon name="Zap" size={14} color={colors.tertiary} />
                   <Text style={styles.warningLabel}>주의 정보</Text>
                 </View>
                 <Text style={styles.warningTitle}>{item.title}</Text>
                 <Text style={styles.warningBody}>{item.body}</Text>
-                {item.checkers && (
+                {item.checkers ? (
                   <View style={styles.checkersRow}>
                     <Text style={styles.checkersText}>
                       {item.checkers.join(', ')}이 확인 중
                     </Text>
                   </View>
-                )}
+                ) : null}
                 <HapticButton hapticType="medium" style={styles.warningBtn}>
-                  <Phone size={16} color={colors.white} />
+                  <Icon name="Phone" size={16} color={colors.white} />
                   <Text style={styles.warningBtnText}>안부 전화하기</Text>
                 </HapticButton>
               </View>
@@ -200,7 +188,7 @@ export default function NotificationScreen() {
             <View key={item.id} style={styles.generalCard}>
               <View style={styles.generalInner}>
                 <View style={styles.generalRow}>
-                  {item.imageUri && (
+                  {!!item.imageUri && (
                     <Image
                       source={{ uri: item.imageUri }}
                       style={styles.generalImage}
@@ -215,11 +203,11 @@ export default function NotificationScreen() {
                     <Text style={styles.generalBody}>{item.body}</Text>
                     <View style={styles.generalActions}>
                       <HapticButton style={styles.generalActionBtn}>
-                        <Heart size={14} color={colors.primaryDark} />
+                        <Icon name="Heart" size={14} color={colors.primaryDark} />
                         <Text style={styles.generalActionPrimary}>좋아요</Text>
                       </HapticButton>
                       <HapticButton style={styles.generalActionBtn}>
-                        <Share2 size={14} color={colors.onSurfaceVariant} />
+                        <Icon name="Share2" size={14} color={colors.onSurfaceVariant} />
                         <Text style={styles.generalActionText}>공유하기</Text>
                       </HapticButton>
                     </View>
@@ -232,7 +220,7 @@ export default function NotificationScreen() {
 
         {filteredData.length === 0 && (
           <View style={styles.empty}>
-            <Bell size={32} color={colors.stone400} />
+            <Icon name="Bell" size={32} color={colors.stone400} />
             <Text style={styles.emptyText}>알림이 없습니다</Text>
           </View>
         )}
@@ -254,7 +242,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.lg },
   title: {
     fontSize: 28,
-    fontWeight: fontWeight.extrabold,
+    fontWeight: '800',
     color: colors.onSurface,
   },
   subtitle: {
@@ -271,7 +259,7 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     backgroundColor: colors.surfaceContainerHigh,
   },
   chipActive: {
@@ -284,14 +272,14 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   chipTextActive: { color: colors.white },
 
   // Emergency
   emergencyCard: {
-    backgroundColor: colors.errorContainer + '50',
+    backgroundColor: 'rgba(255,218,214,0.3)',
     borderRadius: borderRadius.xxl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
@@ -312,25 +300,25 @@ const styles = StyleSheet.create({
   },
   emergencyLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.error,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   emergencyTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onErrorContainer,
     marginTop: 2,
   },
   emergencyTime: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.error,
   },
   emergencyBody: {
     fontSize: fontSize.lg,
-    color: colors.onErrorContainer + 'CC',
+    color: 'rgba(147,0,10,0.8)',
     lineHeight: 24,
     marginBottom: spacing.lg,
   },
@@ -344,7 +332,7 @@ const styles = StyleSheet.create({
   },
   emergencyBtnText: {
     color: colors.white,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     fontSize: fontSize.lg,
   },
   emergencyDismissBtn: {
@@ -356,7 +344,7 @@ const styles = StyleSheet.create({
   },
   emergencyDismissText: {
     color: colors.onErrorContainer,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
   },
 
   // Warning
@@ -376,12 +364,12 @@ const styles = StyleSheet.create({
   },
   warningLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.tertiary,
   },
   warningTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
     marginBottom: 4,
   },
@@ -400,7 +388,7 @@ const styles = StyleSheet.create({
   checkersText: {
     fontSize: fontSize.xs,
     color: colors.onSurfaceVariant,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
   },
   warningBtn: {
     flexDirection: 'row',
@@ -413,7 +401,7 @@ const styles = StyleSheet.create({
   },
   warningBtnText: {
     color: colors.white,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     fontSize: fontSize.lg,
   },
 
@@ -448,12 +436,12 @@ const styles = StyleSheet.create({
   },
   generalLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.secondary,
   },
   generalTime: { fontSize: fontSize.xs, color: colors.stone400 },
   generalTitle: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
     marginBottom: 4,
   },
@@ -470,12 +458,12 @@ const styles = StyleSheet.create({
   },
   generalActionPrimary: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.primaryDark,
   },
   generalActionText: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurfaceVariant,
   },
 
@@ -485,7 +473,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: 12,
   },
-  emptyText: { color: colors.stone400, fontWeight: fontWeight.medium },
+  emptyText: { color: colors.stone400, fontWeight: '500' },
 
   storyPlaceholder: {
     paddingVertical: 40,
@@ -493,7 +481,7 @@ const styles = StyleSheet.create({
   },
   storyText: {
     color: colors.stone500,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     fontStyle: 'italic',
   },
 });

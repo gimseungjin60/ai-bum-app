@@ -10,10 +10,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { ImagePlus, RefreshCw, History, Loader } from 'lucide-react-native';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import Icon from '../components/Icon';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
 import { uploadPhotoWithNotification } from '../services/photoService';
@@ -135,26 +134,21 @@ export default function GalleryScreen() {
         {/* Upload Button */}
         <View style={styles.controls}>
           <HapticButton hapticType="medium" onPress={handleUpload}>
-            <LinearGradient
-              colors={[colors.primaryDark, colors.primaryContainer]}
-              style={styles.uploadBtn}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
+            <View style={[styles.uploadBtn, { backgroundColor: colors.primaryDark }]}>
               {uploading ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <ImagePlus size={18} color={colors.white} />
+                <Icon name="ImagePlus" size={18} color={colors.white} />
               )}
               <Text style={styles.uploadText}>
                 {uploading ? '업로드 중...' : '사진 올리기'}
               </Text>
-            </LinearGradient>
+            </View>
           </HapticButton>
         </View>
 
         {/* Loading */}
-        {loading && (
+        {!!loading && (
           <View style={styles.loadingWrap}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
@@ -170,7 +164,7 @@ export default function GalleryScreen() {
                   style={styles.photoImage}
                   resizeMode="cover"
                 />
-                {(photo.uploaderName || photo.uploader) && (
+                {!!(photo.uploaderName || photo.uploader) && (
                   <View style={styles.photoBadge}>
                     <Text style={styles.photoBadgeText}>
                       {photo.uploaderName || photo.uploader}
@@ -178,9 +172,9 @@ export default function GalleryScreen() {
                     <Text>{photo.emoji || '😊'}</Text>
                   </View>
                 )}
-                {photo.isMemory && (
+                {!!photo.isMemory && (
                   <View style={styles.memoryBadge}>
-                    <History size={12} color={colors.white} />
+                    <Icon name="History" size={12} color={colors.white} />
                     <Text style={styles.memoryBadgeText}>추억의 조각</Text>
                   </View>
                 )}
@@ -199,7 +193,7 @@ export default function GalleryScreen() {
 
         {photos.length === 0 && !loading && (
           <View style={styles.emptyState}>
-            <ImagePlus size={48} color={colors.stone400} />
+            <Icon name="ImagePlus" size={48} color={colors.stone400} />
             <Text style={styles.emptyText}>
               아직 사진이 없습니다{'\n'}첫 번째 사진을 올려보세요!
             </Text>
@@ -216,7 +210,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.lg },
   title: {
     fontSize: 28,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   subtitle: {
@@ -235,11 +229,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 20,
     paddingVertical: 14,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   uploadText: {
     color: colors.white,
-    fontWeight: fontWeight.semibold,
+    fontWeight: '600',
     fontSize: fontSize.md,
   },
   loadingWrap: {
@@ -275,11 +269,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.8)',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   photoBadgeText: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.primaryDark,
   },
   memoryBadge: {
@@ -292,22 +286,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tertiary,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   memoryBadgeText: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.white,
   },
   photoInfo: { paddingHorizontal: 4, marginTop: 8 },
   photoDate: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.onSurfaceVariant,
   },
   photoCaption: {
     fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
     marginTop: 2,
   },

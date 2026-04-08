@@ -6,15 +6,8 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Sparkles,
-  Calendar,
-  Smile,
-  Scan,
-  Eye,
-} from 'lucide-react-native';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import Icon from '../components/Icon';
+import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
@@ -58,13 +51,8 @@ const MOCK_TIMELINE = [
 ];
 
 function getIcon(name, color) {
-  const props = { size: 20, color };
-  switch (name) {
-    case 'smile': return <Smile {...props} />;
-    case 'scan': return <Scan {...props} />;
-    case 'eye': return <Eye {...props} />;
-    default: return <Smile {...props} />;
-  }
+  const iconMap = { smile: 'Smile', scan: 'Scan', eye: 'Eye' };
+  return <Icon name={iconMap[name] || 'Smile'} size={20} color={color} />;
 }
 
 export default function ReportScreen() {
@@ -116,14 +104,9 @@ export default function ReportScreen() {
         </View>
 
         {/* AI Insight */}
-        <LinearGradient
-          colors={[colors.primaryDark, colors.primaryContainer]}
-          style={styles.aiCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
+        <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
           <View style={styles.aiHeader}>
-            <Sparkles size={20} color={colors.white} />
+            <Icon name="Sparkles" size={20} color={colors.white} />
             <Text style={styles.aiTitle}>AI 주간 분석</Text>
           </View>
           <Text style={styles.aiBody}>
@@ -131,12 +114,12 @@ export default function ReportScreen() {
             밝은 표정을 자주 지으셨네요."
           </Text>
           <View style={styles.aiFooter}>
-            <Calendar size={12} color="rgba(255,255,255,0.8)" />
+            <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
             <Text style={styles.aiFooterText}>
               지난 7일간의 기록을 바탕으로 분석되었습니다.
             </Text>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Detection Heatmap */}
         <Card style={styles.heatmapCard}>
@@ -190,7 +173,7 @@ export default function ReportScreen() {
         {/* Weekly Comparison */}
         <View style={styles.compareRow}>
           <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
-            <Smile size={20} color={colors.onSurface} />
+            <Icon name="Smile" size={20} color={colors.onSurface} />
             <Text style={styles.compareLabel}>긍정 정서</Text>
             <View style={styles.compareValueRow}>
               <Text style={styles.compareValue}>88%</Text>
@@ -198,7 +181,7 @@ export default function ReportScreen() {
             </View>
           </View>
           <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
-            <Scan size={20} color={colors.onSurface} />
+            <Icon name="Scan" size={20} color={colors.onSurface} />
             <Text style={styles.compareLabel}>감지 시간</Text>
             <View style={styles.compareValueRow}>
               <Text style={styles.compareValue}>14.2</Text>
@@ -217,14 +200,14 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainerLow,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     padding: 6,
     marginBottom: spacing.lg,
   },
   tab: {
     flex: 1,
     paddingVertical: 10,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     alignItems: 'center',
   },
   tabActive: {
@@ -237,11 +220,11 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.onSurfaceVariant,
   },
   tabTextActive: {
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.primaryDark,
   },
   aiCard: {
@@ -257,12 +240,12 @@ const styles = StyleSheet.create({
   },
   aiTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.white,
   },
   aiBody: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.white,
     lineHeight: 28,
     marginBottom: spacing.md,
@@ -278,7 +261,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   sectionSub: {
@@ -290,11 +273,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryFixed,
     paddingHorizontal: 12,
     paddingVertical: 4,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
   },
   trendText: {
     fontSize: fontSize.sm,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.primaryDark,
   },
   heatmapGrid: {
@@ -316,7 +299,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle2: {
     fontSize: fontSize.xl,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
     marginBottom: spacing.md,
     paddingHorizontal: 4,
@@ -334,7 +317,7 @@ const styles = StyleSheet.create({
   timelineIcon: {
     backgroundColor: colors.white,
     padding: 8,
-    borderRadius: borderRadius.full,
+    borderRadius: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -344,12 +327,12 @@ const styles = StyleSheet.create({
   timelineContent: { flex: 1 },
   timelineTime: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     marginBottom: 4,
   },
   timelineTitle: {
     fontSize: fontSize.lg,
-    fontWeight: fontWeight.medium,
+    fontWeight: '500',
     color: colors.onSurface,
   },
   timelineDesc: {
@@ -371,13 +354,13 @@ const styles = StyleSheet.create({
   },
   compareLabel: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
+    fontWeight: '700',
     color: colors.onSurface,
   },
   compareValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
   compareValue: {
     fontSize: 24,
-    fontWeight: fontWeight.extrabold,
+    fontWeight: '800',
     color: colors.onSurface,
   },
   compareSub: { fontSize: fontSize.xs, color: colors.onSurfaceVariant },
