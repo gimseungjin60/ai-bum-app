@@ -40,7 +40,7 @@ function TabBarIcon({ route, focused }) {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <Icon size={20} color={colors.white} fill={colors.white} />
+        <Icon size={20} color={colors.white} />
         <Text style={styles.activeLabel}>{label}</Text>
       </LinearGradient>
     );

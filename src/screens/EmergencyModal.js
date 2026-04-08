@@ -90,7 +90,7 @@ export default function EmergencyModal({ visible, onClose }) {
               <View style={styles.iconRing1} />
               <View style={styles.iconRing2} />
               <View style={styles.iconCenter}>
-                <AlertTriangle size={48} color={colors.primaryDark} fill={colors.primaryContainer} />
+                <AlertTriangle size={48} color={colors.primaryDark} />
               </View>
             </Animated.View>
 

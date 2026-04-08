@@ -74,7 +74,6 @@ export default function SettingsScreen() {
             <ShieldCheck
               size={28}
               color={colors.onSurface}
-              fill={colors.secondaryContainer}
             />
             <Text style={styles.securityValue}>최상</Text>
           </Card>
