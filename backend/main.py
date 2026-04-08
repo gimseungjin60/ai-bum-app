@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from config import CORS_ORIGINS
 from routers.events import router as events_router
 from routers.reports import router as reports_router
+from routers.photos import router as photos_router
 from scheduler import start_scheduler, stop_scheduler
 
 
@@ -40,6 +41,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(events_router)
 app.include_router(reports_router)
+app.include_router(photos_router)
 
 
 @app.get("/")

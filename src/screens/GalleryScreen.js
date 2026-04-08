@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,67 +7,58 @@ import {
   Image,
   Animated,
   Dimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ImagePlus, RefreshCw, History } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { ImagePlus, RefreshCw, History, Loader } from 'lucide-react-native';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
+import { useCollection } from '../hooks/useFirestore';
+import { uploadPhotoWithNotification } from '../services/photoService';
 
 const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
 const CARD_WIDTH = (width - spacing.lg * 2 - CARD_GAP) / 2;
 
-const PHOTOS = [
+const MOCK_PHOTOS = [
   {
-    id: '1',
+    id: 'mock1',
     uri: 'https://images.unsplash.com/photo-1476234251651-f353703a034d?w=400',
-    uploader: '지은 (손녀)',
+    uploaderName: '지은 (손녀)',
     emoji: '😊',
-    date: '2024년 5월 12일',
     caption: '공원 나들이 정말 즐거웠어요!',
-    aspect: 1,
   },
   {
-    id: '2',
+    id: 'mock2',
     uri: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400',
-    uploader: '민수 (아들)',
+    uploaderName: '민수 (아들)',
     emoji: '🥰',
-    date: '2024년 5월 10일',
     caption: '어머니가 좋아하시는 갈비찜',
-    aspect: 1,
-  },
-  {
-    id: '3',
-    uri: 'https://images.unsplash.com/photo-1522383225653-ed111181a951?w=400',
-    uploader: '지은 (손녀)',
-    emoji: '😊',
-    date: '2024년 5월 8일',
-    caption: '집 앞 꽃이 활짝 피었어요',
-    aspect: 1,
-  },
-  {
-    id: '4',
-    uri: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
-    uploader: '현우 (사위)',
-    emoji: '🌊',
-    date: '2024년 5월 5일',
-    caption: '오랜만의 바다 여행',
-    aspect: 16 / 9,
-    wide: true,
-  },
-  {
-    id: '5',
-    uri: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400',
-    uploader: null,
-    date: '추억: 1982년 봄',
-    caption: '첫 가족 사진 찍던 날',
-    aspect: 1,
-    memory: true,
   },
 ];
 
+function formatDate(timestamp) {
+  if (!timestamp) return '';
+  let date;
+  if (timestamp.toDate) {
+    date = timestamp.toDate();
+  } else if (timestamp.seconds) {
+    date = new Date(timestamp.seconds * 1000);
+  } else {
+    date = new Date(timestamp);
+  }
+  return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`;
+}
+
 export default function GalleryScreen() {
+  const [uploading, setUploading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Firestore에서 사진 목록 구독
+  const { data: firestorePhotos, loading } = useCollection('photos', 'createdAt', 50);
+  const photos = firestorePhotos.length > 0 ? firestorePhotos : MOCK_PHOTOS;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -76,6 +67,55 @@ export default function GalleryScreen() {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const handleUpload = async () => {
+    // 권한 요청
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('권한 필요', '사진을 업로드하려면 갤러리 접근 권한이 필요합니다.');
+      return;
+    }
+
+    // 사진 선택
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (result.canceled) return;
+
+    // 캡션 입력 (간단한 Alert prompt)
+    Alert.prompt
+      ? Alert.prompt(
+          '사진 설명',
+          '어르신께 보여줄 사진 설명을 입력하세요',
+          async (caption) => {
+            await doUpload(result.assets[0].uri, caption);
+          },
+          'plain-text',
+          '',
+          'default'
+        )
+      : await doUpload(result.assets[0].uri, '');
+  };
+
+  const doUpload = async (uri, caption) => {
+    setUploading(true);
+    try {
+      await uploadPhotoWithNotification(uri, {
+        uploaderName: '가족',
+        caption: caption || '소중한 순간',
+        emoji: '😊',
+      });
+      Alert.alert('업로드 완료', '사진이 어르신의 스마트 프레임에 전송됩니다!');
+    } catch (error) {
+      console.error('Upload error:', error);
+      Alert.alert('업로드 실패', '다시 시도해주세요.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <ScrollView
@@ -92,57 +132,53 @@ export default function GalleryScreen() {
           </Text>
         </View>
 
-        {/* Controls */}
+        {/* Upload Button */}
         <View style={styles.controls}>
-          <View style={styles.toggleChip}>
-            <Text style={styles.toggleText}>과거 사진 자동 재생</Text>
-            <View style={styles.toggle}>
-              <View style={styles.toggleDot} />
-            </View>
-          </View>
-          <HapticButton hapticType="medium">
+          <HapticButton hapticType="medium" onPress={handleUpload}>
             <LinearGradient
               colors={[colors.primaryDark, colors.primaryContainer]}
               style={styles.uploadBtn}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <ImagePlus size={18} color={colors.white} />
-              <Text style={styles.uploadText}>사진 올리기</Text>
+              {uploading ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <ImagePlus size={18} color={colors.white} />
+              )}
+              <Text style={styles.uploadText}>
+                {uploading ? '업로드 중...' : '사진 올리기'}
+              </Text>
             </LinearGradient>
           </HapticButton>
         </View>
 
+        {/* Loading */}
+        {loading && (
+          <View style={styles.loadingWrap}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        )}
+
         {/* Photo Grid */}
         <View style={styles.grid}>
-          {PHOTOS.map((photo) => (
-            <HapticButton
-              key={photo.id}
-              style={[
-                styles.photoCard,
-                photo.wide && styles.photoCardWide,
-              ]}
-            >
-              <View
-                style={[
-                  styles.photoImageContainer,
-                  {
-                    aspectRatio: photo.aspect,
-                  },
-                ]}
-              >
+          {photos.map((photo) => (
+            <HapticButton key={photo.id} style={styles.photoCard}>
+              <View style={styles.photoImageContainer}>
                 <Image
                   source={{ uri: photo.uri }}
                   style={styles.photoImage}
                   resizeMode="cover"
                 />
-                {photo.uploader && (
+                {(photo.uploaderName || photo.uploader) && (
                   <View style={styles.photoBadge}>
-                    <Text style={styles.photoBadgeText}>{photo.uploader}</Text>
-                    <Text>{photo.emoji}</Text>
+                    <Text style={styles.photoBadgeText}>
+                      {photo.uploaderName || photo.uploader}
+                    </Text>
+                    <Text>{photo.emoji || '😊'}</Text>
                   </View>
                 )}
-                {photo.memory && (
+                {photo.isMemory && (
                   <View style={styles.memoryBadge}>
                     <History size={12} color={colors.white} />
                     <Text style={styles.memoryBadgeText}>추억의 조각</Text>
@@ -150,18 +186,25 @@ export default function GalleryScreen() {
                 )}
               </View>
               <View style={styles.photoInfo}>
-                <Text style={styles.photoDate}>{photo.date}</Text>
-                <Text style={styles.photoCaption}>{photo.caption}</Text>
+                <Text style={styles.photoDate}>
+                  {formatDate(photo.createdAt) || photo.date || ''}
+                </Text>
+                <Text style={styles.photoCaption} numberOfLines={2}>
+                  {photo.caption}
+                </Text>
               </View>
             </HapticButton>
           ))}
         </View>
 
-        {/* Load More */}
-        <HapticButton style={styles.loadMoreBtn}>
-          <RefreshCw size={18} color={colors.secondary} />
-          <Text style={styles.loadMoreText}>더 많은 사진 불러오기</Text>
-        </HapticButton>
+        {photos.length === 0 && !loading && (
+          <View style={styles.emptyState}>
+            <ImagePlus size={48} color={colors.stone400} />
+            <Text style={styles.emptyText}>
+              아직 사진이 없습니다{'\n'}첫 번째 사진을 올려보세요!
+            </Text>
+          </View>
+        )}
       </Animated.View>
     </ScrollView>
   );
@@ -183,42 +226,8 @@ const styles = StyleSheet.create({
   },
   controls: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     marginBottom: spacing.xl,
-    gap: spacing.sm,
-  },
-  toggleChip: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    borderColor: colors.outlineVariant + '30',
-  },
-  toggleText: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
-    color: colors.onSurfaceVariant,
-  },
-  toggle: {
-    width: 44,
-    height: 24,
-    backgroundColor: colors.primaryContainer,
-    borderRadius: 12,
-    justifyContent: 'center',
-    paddingHorizontal: 3,
-  },
-  toggleDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.white,
-    alignSelf: 'flex-end',
   },
   uploadBtn: {
     flexDirection: 'row',
@@ -233,6 +242,10 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     fontSize: fontSize.md,
   },
+  loadingWrap: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -242,10 +255,8 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     marginBottom: 8,
   },
-  photoCardWide: {
-    width: '100%',
-  },
   photoImageContainer: {
+    aspectRatio: 1,
     borderRadius: borderRadius.xxl,
     overflow: 'hidden',
     backgroundColor: colors.surfaceContainerLow,
@@ -295,24 +306,21 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
   },
   photoCaption: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.onSurface,
     marginTop: 2,
   },
-  loadMoreBtn: {
-    flexDirection: 'row',
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingVertical: 16,
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.xl,
+    paddingVertical: 60,
+    gap: 16,
   },
-  loadMoreText: {
+  emptyText: {
     fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.secondary,
+    color: colors.stone400,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
