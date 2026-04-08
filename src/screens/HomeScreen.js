@@ -13,7 +13,7 @@ import {
   MessageCircle,
   History,
   Heart,
-  Activity,
+  Scan,
   Users,
 } from 'lucide-react-native';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
@@ -70,7 +70,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.lastActiveChip}>
               <History size={14} color={colors.onSurface} />
-              <Text style={styles.lastActiveText}>30분 전 활동 감지</Text>
+              <Text style={styles.lastActiveText}>30분 전 얼굴 감지</Text>
             </View>
           </View>
           <View style={styles.heroBottom}>
@@ -112,18 +112,18 @@ export default function HomeScreen() {
             </Text>
           </Card>
 
-          {/* Activity Stats */}
+          {/* Face Detection Stats */}
           <Card style={styles.gridCard}>
             <View style={styles.gridCardHeader}>
-              <Text style={styles.gridLabel}>활동 통계</Text>
-              <Activity size={20} color={colors.tertiary} />
+              <Text style={styles.gridLabel}>얼굴 감지</Text>
+              <Scan size={20} color={colors.tertiary} />
             </View>
             <View style={styles.statRow}>
               <Text style={styles.statLabel}>감지 시간</Text>
               <Text style={styles.statValue}>12시간 40분</Text>
             </View>
             <View style={styles.statRow}>
-              <Text style={styles.statLabel}>웃음 횟수</Text>
+              <Text style={styles.statLabel}>미소 횟수</Text>
               <Text style={styles.statValue}>18회</Text>
             </View>
           </Card>
@@ -132,7 +132,7 @@ export default function HomeScreen() {
         {/* Weekly Chart */}
         <Card style={styles.chartCard} variant="low">
           <View style={styles.chartHeader}>
-            <Text style={styles.chartTitle}>주간 활동 추이</Text>
+            <Text style={styles.chartTitle}>주간 감지 추이</Text>
             <Text style={styles.chartSub}>지난 7일간</Text>
           </View>
           <View style={styles.barsContainer}>

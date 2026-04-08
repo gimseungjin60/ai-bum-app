@@ -98,7 +98,7 @@ export default function EmergencyModal({ visible, onClose }) {
 
             <View style={styles.messageBox}>
               <Text style={styles.messageText}>
-                어르신 댁에서 24시간 동안 움직임이 감지되지 않았습니다.
+                어르신의 얼굴이 24시간 동안 감지되지 않았습니다.
                 신속한 확인이 필요합니다.
               </Text>
             </View>

@@ -11,9 +11,8 @@ import {
   Sparkles,
   Calendar,
   Smile,
-  Heart,
-  Users,
-  Footprints,
+  Scan,
+  Eye,
 } from 'lucide-react-native';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import Card from '../components/Card';
@@ -35,7 +34,7 @@ const MOCK_TIMELINE = [
   {
     id: '1',
     time: '오전 10:24',
-    title: '가족 사진에 3회 미소',
+    title: '밝은 미소 3회 감지',
     desc: '거실에서 손주들의 사진을 보며 따뜻한 표정을 지으셨습니다.',
     color: colors.secondary,
     icon: 'smile',
@@ -43,18 +42,18 @@ const MOCK_TIMELINE = [
   {
     id: '2',
     time: '오후 02:15',
-    title: '거실 화분 물주기 완료',
-    desc: '평소보다 가벼운 걸음걸이로 식물들을 돌보셨습니다.',
+    title: '얼굴 감지 지속 42분',
+    desc: '오후 시간대에 안정적으로 얼굴이 감지되었습니다.',
     color: colors.primaryDark,
-    icon: 'heart',
+    icon: 'scan',
   },
   {
     id: '3',
     time: '오후 04:40',
-    title: '친구와 영상 통화 15분',
-    desc: '김철수 님과 통화하며 즐거운 대화를 나누셨습니다.',
+    title: '표정 변화 감지',
+    desc: '평소보다 밝은 표정이 자주 포착되었습니다.',
     color: colors.tertiary,
-    icon: 'users',
+    icon: 'eye',
   },
 ];
 
@@ -62,8 +61,8 @@ function getIcon(name, color) {
   const props = { size: 20, color };
   switch (name) {
     case 'smile': return <Smile {...props} />;
-    case 'heart': return <Heart {...props} />;
-    case 'users': return <Users {...props} />;
+    case 'scan': return <Scan {...props} />;
+    case 'eye': return <Eye {...props} />;
     default: return <Smile {...props} />;
   }
 }
@@ -128,8 +127,8 @@ export default function ReportScreen() {
             <Text style={styles.aiTitle}>AI 주간 분석</Text>
           </View>
           <Text style={styles.aiBody}>
-            "이번 주 활동량이 평소보다 20% 높습니다. 정원 산책을 즐기시는
-            모습이 많이 포착되었네요."
+            "이번 주 미소 횟수가 평소보다 20% 높습니다. 가족 사진을 보시며
+            밝은 표정을 자주 지으셨네요."
           </Text>
           <View style={styles.aiFooter}>
             <Calendar size={12} color="rgba(255,255,255,0.8)" />
@@ -143,8 +142,8 @@ export default function ReportScreen() {
         <Card style={styles.heatmapCard}>
           <View style={styles.heatmapHeader}>
             <View>
-              <Text style={styles.sectionTitle}>활동 히트맵</Text>
-              <Text style={styles.sectionSub}>시간대별 소중한 순간 감지</Text>
+              <Text style={styles.sectionTitle}>감지 히트맵</Text>
+              <Text style={styles.sectionSub}>시간대별 얼굴 감지 현황</Text>
             </View>
             <View style={styles.trendBadge}>
               <Text style={styles.trendText}>상승세</Text>
@@ -199,11 +198,11 @@ export default function ReportScreen() {
             </View>
           </View>
           <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
-            <Footprints size={20} color={colors.onSurface} />
-            <Text style={styles.compareLabel}>활동 지수</Text>
+            <Scan size={20} color={colors.onSurface} />
+            <Text style={styles.compareLabel}>감지 시간</Text>
             <View style={styles.compareValueRow}>
-              <Text style={styles.compareValue}>7.2</Text>
-              <Text style={styles.compareSub}>매우 높음</Text>
+              <Text style={styles.compareValue}>14.2</Text>
+              <Text style={styles.compareSub}>시간/일 평균</Text>
             </View>
           </View>
         </View>

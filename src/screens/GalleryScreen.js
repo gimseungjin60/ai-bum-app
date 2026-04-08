@@ -25,7 +25,7 @@ const PHOTOS = [
     emoji: '😊',
     date: '2024년 5월 12일',
     caption: '공원 나들이 정말 즐거웠어요!',
-    aspect: 4 / 5,
+    aspect: 1,
   },
   {
     id: '2',
@@ -34,7 +34,7 @@ const PHOTOS = [
     emoji: '🥰',
     date: '2024년 5월 10일',
     caption: '어머니가 좋아하시는 갈비찜',
-    aspect: 4 / 5,
+    aspect: 1,
   },
   {
     id: '3',
@@ -43,7 +43,7 @@ const PHOTOS = [
     emoji: '😊',
     date: '2024년 5월 8일',
     caption: '집 앞 꽃이 활짝 피었어요',
-    aspect: 4 / 5,
+    aspect: 1,
   },
   {
     id: '4',
@@ -52,7 +52,7 @@ const PHOTOS = [
     emoji: '🌊',
     date: '2024년 5월 5일',
     caption: '오랜만의 바다 여행',
-    aspect: 21 / 9,
+    aspect: 16 / 9,
     wide: true,
   },
   {
@@ -61,7 +61,7 @@ const PHOTOS = [
     uploader: null,
     date: '추억: 1982년 봄',
     caption: '첫 가족 사진 찍던 날',
-    aspect: 4 / 5,
+    aspect: 1,
     memory: true,
   },
 ];
