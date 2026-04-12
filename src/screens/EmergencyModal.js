@@ -6,6 +6,9 @@ import {
   Modal,
   Animated,
   Dimensions,
+  Alert,
+  Linking,
+  Share,
 } from 'react-native';
 import Icon from '../components/Icon';
 import * as Haptics from 'expo-haptics';
@@ -25,35 +28,20 @@ export default function EmergencyModal({ visible, onClose }) {
 
       Animated.parallel([
         Animated.spring(scaleAnim, {
-          toValue: 1,
-          useNativeDriver: true,
-          tension: 50,
-          friction: 8,
+          toValue: 1, useNativeDriver: true, tension: 50, friction: 8,
         }),
         Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
+          toValue: 1, duration: 300, useNativeDriver: true,
         }),
       ]).start();
 
-      // Pulse animation for the icon
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.15,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
         ])
       );
       pulse.start();
-
       return () => pulse.stop();
     } else {
       scaleAnim.setValue(0.8);
@@ -61,30 +49,45 @@ export default function EmergencyModal({ visible, onClose }) {
     }
   }, [visible]);
 
+  function handleCall() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    // 실제 전화번호로 교체 필요
+    Linking.openURL('tel:010-0000-0000').catch(() =>
+      Alert.alert('오류', '전화 앱을 열 수 없습니다.')
+    );
+    onClose();
+  }
+
+  async function handleNotifyFamily() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    try {
+      await Share.share({
+        message:
+          '[긴급] 어르신 안부 확인 필요\n\n' +
+          '어르신의 얼굴이 장시간 감지되지 않았습니다.\n' +
+          '즉시 확인이 필요합니다.\n\n' +
+          '- AI-bum 보호자 앱에서 보냄',
+      });
+    } catch {}
+    onClose();
+  }
+
   return (
     <Modal visible={visible} transparent animationType="none">
       <View style={styles.backdrop}>
         <Animated.View
           style={[
             styles.card,
-            {
-              opacity: opacityAnim,
-              transform: [{ scale: scaleAnim }],
-            },
+            { opacity: opacityAnim, transform: [{ scale: scaleAnim }] },
           ]}
         >
-          {/* Close Button */}
           <HapticButton onPress={onClose} style={styles.closeBtn}>
             <Icon name="X" size={20} color={colors.onSurfaceVariant} />
           </HapticButton>
 
           <View style={styles.content}>
-            {/* Siren Icon */}
             <Animated.View
-              style={[
-                styles.iconContainer,
-                { transform: [{ scale: pulseAnim }] },
-              ]}
+              style={[styles.iconContainer, { transform: [{ scale: pulseAnim }] }]}
             >
               <View style={styles.iconRing1} />
               <View style={styles.iconRing2} />
@@ -97,20 +100,19 @@ export default function EmergencyModal({ visible, onClose }) {
 
             <View style={styles.messageBox}>
               <Text style={styles.messageText}>
-                어르신의 얼굴이 24시간 동안 감지되지 않았습니다.
+                어르신의 얼굴이 장시간 감지되지 않았습니다.
                 신속한 확인이 필요합니다.
               </Text>
             </View>
 
-            {/* Action Buttons */}
-            <HapticButton hapticType="heavy" onPress={onClose}>
+            <HapticButton hapticType="heavy" onPress={handleCall}>
               <View style={[styles.callBtn, { backgroundColor: colors.primaryDark }]}>
                 <Icon name="Phone" size={20} color={colors.white} />
                 <Text style={styles.callBtnText}>전화하기</Text>
               </View>
             </HapticButton>
 
-            <HapticButton hapticType="medium" onPress={onClose} style={styles.familyBtn}>
+            <HapticButton hapticType="medium" onPress={handleNotifyFamily} style={styles.familyBtn}>
               <Icon name="Users" size={20} color={colors.onSurface} />
               <Text style={styles.familyBtnText}>가족에게 알리기</Text>
             </HapticButton>
@@ -120,7 +122,6 @@ export default function EmergencyModal({ visible, onClose }) {
             </Text>
           </View>
 
-          {/* Bottom Accent */}
           <View style={[styles.accentBar, { backgroundColor: colors.primaryDark }]} />
         </Animated.View>
       </View>
@@ -150,106 +151,31 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 40,
-    height: 40,
+    top: 20, right: 20,
+    width: 40, height: 40,
     borderRadius: 9999,
     backgroundColor: colors.surfaceContainerHigh,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
     zIndex: 10,
   },
-  content: {
-    padding: 32,
-    paddingTop: 48,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  iconRing1: {
-    position: 'absolute',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: 'rgba(174,47,52,0.08)',
-  },
-  iconRing2: {
-    position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(174,47,52,0.15)',
-  },
-  iconCenter: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.primaryDark,
-    marginBottom: spacing.md,
-  },
-  messageBox: {
-    backgroundColor: 'rgba(238,231,223,0.5)',
-    padding: 20,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.xl,
-  },
-  messageText: {
-    fontSize: fontSize.lg,
-    color: colors.onSurface,
-    lineHeight: 24,
-    textAlign: 'center',
-  },
+  content: { padding: 32, paddingTop: 48, alignItems: 'center' },
+  iconContainer: { width: 96, height: 96, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg },
+  iconRing1: { position: 'absolute', width: 96, height: 96, borderRadius: 48, backgroundColor: 'rgba(174,47,52,0.08)' },
+  iconRing2: { position: 'absolute', width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(174,47,52,0.15)' },
+  iconCenter: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 24, fontWeight: '800', color: colors.primaryDark, marginBottom: spacing.md },
+  messageBox: { backgroundColor: 'rgba(238,231,223,0.5)', padding: 20, borderRadius: borderRadius.lg, marginBottom: spacing.xl },
+  messageText: { fontSize: fontSize.lg, color: colors.onSurface, lineHeight: 24, textAlign: 'center' },
   callBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    width: '100%',
-    height: 56,
-    borderRadius: 9999,
-    marginBottom: spacing.sm,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+    width: '100%', height: 56, borderRadius: 9999, marginBottom: spacing.sm,
   },
-  callBtnText: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: fontSize.xl,
-  },
+  callBtnText: { color: colors.white, fontWeight: '700', fontSize: fontSize.xl },
   familyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    width: '100%',
-    height: 56,
-    borderRadius: 9999,
-    backgroundColor: colors.secondaryFixedDim,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
+    width: '100%', height: 56, borderRadius: 9999, backgroundColor: colors.secondaryFixedDim,
   },
-  familyBtnText: {
-    fontWeight: '700',
-    fontSize: fontSize.xl,
-    color: colors.onSurface,
-  },
-  footer: {
-    marginTop: spacing.lg,
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  accentBar: {
-    height: 8,
-    width: '100%',
-  },
+  familyBtnText: { fontWeight: '700', fontSize: fontSize.xl, color: colors.onSurface },
+  footer: { marginTop: spacing.lg, fontSize: fontSize.md, color: colors.onSurfaceVariant, fontWeight: '500', textAlign: 'center' },
+  accentBar: { height: 8, width: '100%' },
 });

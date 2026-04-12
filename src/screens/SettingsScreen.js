@@ -6,27 +6,63 @@ import {
   StyleSheet,
   Image,
   Animated,
+  Alert,
+  Share,
 } from 'react-native';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
+import { useAuth } from '../contexts/AuthContext';
+import { useSenior } from '../contexts/SeniorContext';
 
-const FAMILY_MEMBERS = [
-  { name: '이철수 (아들)', role: '관리자 권한', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100' },
-  { name: '이영희 (손녀)', role: '편집 권한', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' },
-];
-
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }) {
+  const { user, pairedDevice, logout } = useAuth();
+  const { wsConnected, seniorStatus } = useSenior();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
+      toValue: 1, duration: 500, useNativeDriver: true,
     }).start();
   }, []);
+
+  function handleLogout() {
+    Alert.alert('로그아웃', '정말 로그아웃 하시겠습니까?', [
+      { text: '취소', style: 'cancel' },
+      { text: '로그아웃', style: 'destructive', onPress: logout },
+    ]);
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      '계정 탈퇴',
+      '모든 데이터가 삭제됩니다. 정말 탈퇴하시겠습니까?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '탈퇴',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('안내', '계정 탈퇴 기능은 아직 준비 중입니다.');
+          },
+        },
+      ]
+    );
+  }
+
+  async function handleInvite() {
+    try {
+      await Share.share({
+        message:
+          'AI-bum 보호자 앱에 가입하고 어르신 디바이스와 연결하세요!\n' +
+          '함께 어르신의 안부를 확인해요.',
+      });
+    } catch {}
+  }
+
+  const isDeviceOnline = wsConnected;
+  const deviceId = pairedDevice?.deviceId || '연결 안됨';
 
   return (
     <ScrollView
@@ -35,35 +71,48 @@ export default function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       <Animated.View style={{ opacity: fadeAnim }}>
-        {/* Profile Bento */}
+        {/* Profile */}
         <View style={styles.profileRow}>
           <Card style={styles.profileCard}>
             <View style={styles.profileInner}>
               <View style={styles.avatarWrap}>
-                <Image
-                  source={{
-                    uri: 'https://images.unsplash.com/photo-1566616213894-2d4e1baee5d8?w=200',
-                  }}
-                  style={styles.avatar}
-                />
-                <View style={styles.editBadge}>
-                  <Icon name="Edit3" size={10} color={colors.white} />
+                <View style={styles.avatar}>
+                  <Text style={{ fontSize: 32 }}>👤</Text>
                 </View>
               </View>
               <View>
-                <Text style={styles.profileName}>김순자 어르신</Text>
-                <Text style={styles.profileSub}>
-                  사랑하는 가족들과 연결됨
-                </Text>
+                <Text style={styles.profileName}>{user?.name || '보호자'}</Text>
+                <Text style={styles.profileSub}>{user?.email || ''}</Text>
               </View>
             </View>
           </Card>
           <Card style={styles.securityCard}>
-            <Text style={styles.securityLabel}>보안 상태</Text>
-            <Icon name="ShieldCheck" size={28} color={colors.onSurface} />
-            <Text style={styles.securityValue}>최상</Text>
+            <Text style={styles.securityLabel}>연결 상태</Text>
+            <Icon
+              name={isDeviceOnline ? 'ShieldCheck' : 'AlertTriangle'}
+              size={28}
+              color={colors.onSurface}
+            />
+            <Text style={styles.securityValue}>
+              {isDeviceOnline ? '정상' : '오프라인'}
+            </Text>
           </Card>
         </View>
+
+        {/* 복약 관리 바로가기 */}
+        <HapticButton
+          onPress={() => navigation.navigate('Medication')}
+          style={styles.medicationCard}
+        >
+          <View style={styles.medicationIcon}>
+            <Icon name="Heart" size={22} color={colors.gradientStart} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.medicationTitle}>복약 관리</Text>
+            <Text style={styles.medicationSub}>약 스케줄 추가/수정/삭제</Text>
+          </View>
+          <Icon name="ChevronRight" size={20} color={colors.stone400} />
+        </HapticButton>
 
         {/* 가족 그룹 관리 */}
         <View style={styles.sectionHeader}>
@@ -73,28 +122,26 @@ export default function SettingsScreen() {
               함께 앨범을 관리하는 소중한 사람들
             </Text>
           </View>
-          <HapticButton>
+          <HapticButton onPress={handleInvite}>
             <View style={styles.inviteBtn}>
               <Icon name="UserPlus" size={14} color={colors.primaryDark} />
               <Text style={styles.inviteBtnText}>초대하기</Text>
             </View>
           </HapticButton>
         </View>
-        {FAMILY_MEMBERS.map((member) => (
-          <HapticButton key={member.name} style={styles.memberCard}>
-            <View style={styles.memberRow}>
-              <Image
-                source={{ uri: member.avatar }}
-                style={styles.memberAvatar}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.memberName}>{member.name}</Text>
-                <Text style={styles.memberRole}>{member.role}</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.onSurfaceVariant} />
+
+        {/* 현재 사용자 표시 */}
+        <View style={styles.memberCard}>
+          <View style={styles.memberRow}>
+            <View style={styles.memberAvatarPlaceholder}>
+              <Text style={{ fontSize: 18 }}>👤</Text>
             </View>
-          </HapticButton>
-        ))}
+            <View style={{ flex: 1 }}>
+              <Text style={styles.memberName}>{user?.name || '보호자'} (나)</Text>
+              <Text style={styles.memberRole}>관리자 권한</Text>
+            </View>
+          </View>
+        </View>
 
         {/* 기기 관리 */}
         <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>
@@ -110,23 +157,26 @@ export default function SettingsScreen() {
                 <View>
                   <Text style={styles.deviceName}>AI-bum 스마트 프레임</Text>
                   <Text style={styles.deviceSub}>
-                    거실 설치됨 · 현재 온라인
+                    {deviceId}
                   </Text>
                 </View>
-                <View style={styles.connectedBadge}>
-                  <Text style={styles.connectedText}>연결됨</Text>
+                <View style={[
+                  styles.connectedBadge,
+                  !isDeviceOnline && { backgroundColor: '#FEE2E2' },
+                ]}>
+                  <Text style={[
+                    styles.connectedText,
+                    !isDeviceOnline && { color: colors.error },
+                  ]}>
+                    {isDeviceOnline ? '연결됨' : '오프라인'}
+                  </Text>
                 </View>
               </View>
-              <View style={styles.deviceActions}>
-                <HapticButton style={styles.deviceBtn}>
-                  <Icon name="Monitor" size={14} color={colors.onSurface} />
-                  <Text style={styles.deviceBtnText}>화면 설정</Text>
-                </HapticButton>
-                <HapticButton style={styles.deviceBtn}>
-                  <Icon name="Sun" size={14} color={colors.onSurface} />
-                  <Text style={styles.deviceBtnText}>밝기 조절</Text>
-                </HapticButton>
-              </View>
+              {isDeviceOnline && (
+                <Text style={styles.deviceStatus}>
+                  현재 상태: {seniorStatus === 'active' ? '활동 중' : seniorStatus === 'greeting' ? '인사 중' : '대기'}
+                </Text>
+              )}
             </View>
           </View>
         </Card>
@@ -147,11 +197,11 @@ export default function SettingsScreen() {
 
         {/* Danger Zone */}
         <View style={styles.dangerZone}>
-          <HapticButton style={styles.logoutBtn}>
+          <HapticButton style={styles.logoutBtn} onPress={handleLogout}>
             <Icon name="LogOut" size={16} color={colors.stone400} />
             <Text style={styles.logoutText}>로그아웃</Text>
           </HapticButton>
-          <HapticButton style={styles.deleteBtn}>
+          <HapticButton style={styles.deleteBtn} onPress={handleDeleteAccount}>
             <Icon name="Trash2" size={14} color={'#BA1A1A99'} />
             <Text style={styles.deleteText}>계정 탈퇴 및 데이터 삭제</Text>
           </HapticButton>
@@ -167,7 +217,7 @@ const styles = StyleSheet.create({
   profileRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   profileCard: { flex: 2 },
   profileInner: {
@@ -177,32 +227,15 @@ const styles = StyleSheet.create({
   },
   avatarWrap: { position: 'relative' },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: borderRadius.lg,
-  },
-  editBadge: {
-    position: 'absolute',
-    bottom: -6,
-    right: -6,
-    backgroundColor: colors.primaryDark,
-    padding: 6,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 72, height: 72, borderRadius: borderRadius.lg,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: 'center', justifyContent: 'center',
   },
   profileName: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.onSurface,
+    fontSize: fontSize.xl, fontWeight: '700', color: colors.onSurface,
   },
   profileSub: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    marginTop: 4,
+    fontSize: fontSize.md, color: colors.onSurfaceVariant, marginTop: 4,
   },
   securityCard: {
     flex: 1,
@@ -212,126 +245,72 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   securityLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.onSecondaryContainer,
+    fontSize: fontSize.xs, fontWeight: '700', color: colors.onSecondaryContainer,
   },
   securityValue: {
-    fontSize: fontSize.lg,
-    fontWeight: '600',
-    color: colors.onSecondaryContainer,
+    fontSize: fontSize.lg, fontWeight: '600', color: colors.onSecondaryContainer,
   },
+
+  medicationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.primaryFixed,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  medicationIcon: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  medicationTitle: { fontWeight: '700', color: colors.onSurface, fontSize: fontSize.md },
+  medicationSub: { fontSize: fontSize.sm, color: colors.stone500, marginTop: 2 },
+
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  sectionSub: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
-  inviteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  inviteBtnText: {
-    fontSize: fontSize.md,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
+  sectionTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.onSurface },
+  sectionSub: { fontSize: fontSize.md, color: colors.onSurfaceVariant, marginTop: 2 },
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  inviteBtnText: { fontSize: fontSize.md, fontWeight: '700', color: colors.primaryDark },
+
   memberCard: {
     backgroundColor: colors.surfaceContainerLow,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  memberAvatarPlaceholder: {
+    width: 48, height: 48, borderRadius: 9999,
+    backgroundColor: colors.surfaceContainer,
+    alignItems: 'center', justifyContent: 'center',
   },
-  memberAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 9999,
-  },
-  memberName: {
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  memberRole: {
-    fontSize: fontSize.xs,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
+  memberName: { fontWeight: '700', color: colors.onSurface },
+  memberRole: { fontSize: fontSize.xs, color: colors.onSurfaceVariant, marginTop: 2 },
+
   deviceCard: {
     marginTop: spacing.md,
     borderWidth: 2,
     borderColor: 'rgba(224,191,189,0.13)',
   },
-  deviceHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  deviceIconWrap: {
-    backgroundColor: colors.tertiaryFixed,
-    padding: 12,
-    borderRadius: borderRadius.lg,
-  },
-  deviceTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  deviceName: {
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  deviceSub: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    marginTop: 2,
-  },
+  deviceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  deviceIconWrap: { backgroundColor: colors.tertiaryFixed, padding: 12, borderRadius: borderRadius.lg },
+  deviceTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  deviceName: { fontWeight: '700', color: colors.onSurface },
+  deviceSub: { fontSize: fontSize.md, color: colors.onSurfaceVariant, marginTop: 2 },
+  deviceStatus: { fontSize: fontSize.sm, color: colors.stone500, marginTop: 6 },
   connectedBadge: {
     backgroundColor: colors.emerald100,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 9999,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 9999,
   },
-  connectedText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.emerald700,
-  },
-  deviceActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: spacing.md,
-  },
-  deviceBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingVertical: 10,
-    borderRadius: borderRadius.sm,
-  },
-  deviceBtnText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.onSurface,
-  },
+  connectedText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.emerald700 },
+
   privacyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -342,46 +321,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   privacyIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 9999,
+    width: 48, height: 48, borderRadius: 9999,
     backgroundColor: 'rgba(255,255,255,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  privacyTitle: {
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  privacyDesc: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    lineHeight: 20,
-    marginTop: 4,
-  },
-  dangerZone: {
-    marginTop: spacing.xl,
-    gap: spacing.md,
-    alignItems: 'center',
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  logoutText: {
-    fontSize: fontSize.md,
-    fontWeight: '500',
-    color: colors.stone400,
-  },
-  deleteBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  deleteText: {
-    fontSize: fontSize.xs,
-    fontWeight: '500',
-    color: '#BA1A1A99',
-  },
+  privacyTitle: { fontWeight: '700', color: colors.onSurface },
+  privacyDesc: { fontSize: fontSize.md, color: colors.onSurfaceVariant, lineHeight: 20, marginTop: 4 },
+
+  dangerZone: { marginTop: spacing.xl, gap: spacing.md, alignItems: 'center' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  logoutText: { fontSize: fontSize.md, fontWeight: '500', color: colors.stone400 },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  deleteText: { fontSize: fontSize.xs, fontWeight: '500', color: '#BA1A1A99' },
 });

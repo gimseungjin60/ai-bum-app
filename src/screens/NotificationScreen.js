@@ -6,12 +6,15 @@ import {
   StyleSheet,
   Image,
   Animated,
+  Alert,
+  Linking,
+  Share,
 } from 'react-native';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
-import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
+import { useSenior } from '../contexts/SeniorContext';
 
 const FILTER_CHIPS = [
   { label: '전체', icon: 'grid', active: true },
@@ -34,7 +37,6 @@ const MOCK_NOTIFICATIONS = [
     title: '얼굴 감지 빈도 감소',
     body: '평소보다 얼굴 감지 횟수가 40% 줄었습니다. 안부를 여쭈어보는 건 어떨까요?',
     time: '1시간 전',
-    checkers: ['형준 님', '민아 님'],
   },
   {
     id: '3',
@@ -53,31 +55,86 @@ function getFilterIcon(name, color) {
   return <Icon name={iconName} size={14} color={color || colors.white} />;
 }
 
-export default function NotificationScreen() {
+function formatNotifTime(item) {
+  if (item.time) return item.time;
+  if (item.createdAt) {
+    const d = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
+    const diff = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (diff < 1) return '방금 전';
+    if (diff < 60) return `${diff}분 전`;
+    if (diff < 1440) return `${Math.floor(diff / 60)}시간 전`;
+    return `${Math.floor(diff / 1440)}일 전`;
+  }
+  return '';
+}
+
+export default function NotificationScreen({ navigation }) {
   const [activeFilter, setActiveFilter] = useState(0);
+  const [dismissed, setDismissed] = useState(new Set());
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { isEmergency, clearEmergency } = useSenior();
 
-  // Firestore에서 알림 데이터 가져오기
-  const { data: notifications, loading } = useCollection('notifications', 'createdAt');
-
+  const { data: notifications } = useCollection('notifications', 'createdAt');
   const notifData = notifications.length > 0 ? notifications : MOCK_NOTIFICATIONS;
 
-  const filteredData = activeFilter === 0
+  const filteredData = (activeFilter === 0
     ? notifData
     : notifData.filter((n) => {
         if (activeFilter === 1) return n.type === 'emergency';
         if (activeFilter === 2) return n.type === 'warning';
         if (activeFilter === 3) return n.type === 'general';
         return true;
-      });
+      })
+  ).filter((n) => !dismissed.has(n.id));
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
+      toValue: 1, duration: 500, useNativeDriver: true,
     }).start();
   }, []);
+
+  function handleDismiss(id) {
+    setDismissed((prev) => new Set(prev).add(id));
+  }
+
+  async function handleShareEmergency(item) {
+    try {
+      await Share.share({
+        message: `[긴급] ${item.title}\n${item.body}\n\n- AI-bum 보호자 앱에서 보냄`,
+      });
+    } catch {}
+  }
+
+  function handleCall() {
+    Alert.alert(
+      '전화 연결',
+      '어르신에게 전화를 걸까요?',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '전화하기',
+          onPress: () => {
+            // 실제 전화번호로 교체 필요
+            Linking.openURL('tel:010-0000-0000').catch(() =>
+              Alert.alert('오류', '전화 앱을 열 수 없습니다.')
+            );
+          },
+        },
+      ]
+    );
+  }
+
+  function handleVoiceMessage() {
+    navigation.navigate('VoiceMessage');
+  }
+
+  async function handleShareGeneral(item) {
+    try {
+      await Share.share({
+        message: `${item.title}\n${item.body}\n\n- AI-bum에서 보냄`,
+      });
+    } catch {}
+  }
 
   return (
     <ScrollView
@@ -94,6 +151,30 @@ export default function NotificationScreen() {
           </Text>
         </View>
 
+        {/* 실시간 긴급 배너 */}
+        {isEmergency && (
+          <HapticButton
+            hapticType="heavy"
+            onPress={clearEmergency}
+            style={styles.liveBanner}
+          >
+            <Icon name="AlertTriangle" size={18} color="#FFF" />
+            <Text style={styles.liveBannerText}>긴급 상황이 감지되었습니다</Text>
+          </HapticButton>
+        )}
+
+        {/* 음성 메시지 바로가기 */}
+        <HapticButton onPress={handleVoiceMessage} style={styles.voiceMsgCard}>
+          <View style={styles.voiceMsgIcon}>
+            <Icon name="MessageCircle" size={22} color={colors.gradientStart} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.voiceMsgTitle}>음성 메시지</Text>
+            <Text style={styles.voiceMsgSub}>어르신에게 음성 메시지 보내기</Text>
+          </View>
+          <Icon name="ChevronRight" size={20} color={colors.stone400} />
+        </HapticButton>
+
         {/* Filter Chips */}
         <ScrollView
           horizontal
@@ -105,21 +186,10 @@ export default function NotificationScreen() {
             <HapticButton
               key={chip.label}
               onPress={() => setActiveFilter(i)}
-              style={[
-                styles.chip,
-                activeFilter === i && styles.chipActive,
-              ]}
+              style={[styles.chip, activeFilter === i && styles.chipActive]}
             >
-              {getFilterIcon(
-                chip.icon,
-                activeFilter === i ? colors.white : chip.color
-              )}
-              <Text
-                style={[
-                  styles.chipText,
-                  activeFilter === i && styles.chipTextActive,
-                ]}
-              >
+              {getFilterIcon(chip.icon, activeFilter === i ? colors.white : chip.color)}
+              <Text style={[styles.chipText, activeFilter === i && styles.chipTextActive]}>
                 {chip.label}
               </Text>
             </HapticButton>
@@ -128,6 +198,8 @@ export default function NotificationScreen() {
 
         {/* Notifications */}
         {filteredData.map((item) => {
+          const timeStr = formatNotifTime(item);
+
           if (item.type === 'emergency') {
             return (
               <View key={item.id} style={styles.emergencyCard}>
@@ -139,19 +211,21 @@ export default function NotificationScreen() {
                     <Text style={styles.emergencyLabel}>긴급 알림</Text>
                     <Text style={styles.emergencyTitle}>{item.title}</Text>
                   </View>
-                  <Text style={styles.emergencyTime}>{item.time}</Text>
+                  <Text style={styles.emergencyTime}>{timeStr}</Text>
                 </View>
                 <Text style={styles.emergencyBody}>{item.body}</Text>
                 <View style={styles.emergencyActions}>
                   <HapticButton
                     hapticType="heavy"
                     style={styles.emergencyBtn}
+                    onPress={() => handleShareEmergency(item)}
                   >
-                    <Text style={styles.emergencyBtnText}>
-                      가족에게 긴급 공유
-                    </Text>
+                    <Text style={styles.emergencyBtnText}>가족에게 긴급 공유</Text>
                   </HapticButton>
-                  <HapticButton style={styles.emergencyDismissBtn}>
+                  <HapticButton
+                    style={styles.emergencyDismissBtn}
+                    onPress={() => handleDismiss(item.id)}
+                  >
                     <Text style={styles.emergencyDismissText}>알겠습니다</Text>
                   </HapticButton>
                 </View>
@@ -168,14 +242,7 @@ export default function NotificationScreen() {
                 </View>
                 <Text style={styles.warningTitle}>{item.title}</Text>
                 <Text style={styles.warningBody}>{item.body}</Text>
-                {item.checkers ? (
-                  <View style={styles.checkersRow}>
-                    <Text style={styles.checkersText}>
-                      {item.checkers.join(', ')}이 확인 중
-                    </Text>
-                  </View>
-                ) : null}
-                <HapticButton hapticType="medium" style={styles.warningBtn}>
+                <HapticButton hapticType="medium" style={styles.warningBtn} onPress={handleCall}>
                   <Icon name="Phone" size={16} color={colors.white} />
                   <Text style={styles.warningBtnText}>안부 전화하기</Text>
                 </HapticButton>
@@ -183,30 +250,32 @@ export default function NotificationScreen() {
             );
           }
 
-          // General
           return (
             <View key={item.id} style={styles.generalCard}>
               <View style={styles.generalInner}>
                 <View style={styles.generalRow}>
                   {!!item.imageUri && (
-                    <Image
-                      source={{ uri: item.imageUri }}
-                      style={styles.generalImage}
-                    />
+                    <Image source={{ uri: item.imageUri }} style={styles.generalImage} />
                   )}
                   <View style={{ flex: 1 }}>
                     <View style={styles.generalHeaderRow}>
                       <Text style={styles.generalLabel}>일반 소식</Text>
-                      <Text style={styles.generalTime}>{item.time}</Text>
+                      <Text style={styles.generalTime}>{timeStr}</Text>
                     </View>
                     <Text style={styles.generalTitle}>{item.title}</Text>
                     <Text style={styles.generalBody}>{item.body}</Text>
                     <View style={styles.generalActions}>
-                      <HapticButton style={styles.generalActionBtn}>
-                        <Icon name="Heart" size={14} color={colors.primaryDark} />
-                        <Text style={styles.generalActionPrimary}>좋아요</Text>
+                      <HapticButton
+                        style={styles.generalActionBtn}
+                        onPress={handleVoiceMessage}
+                      >
+                        <Icon name="MessageCircle" size={14} color={colors.primaryDark} />
+                        <Text style={styles.generalActionPrimary}>답장하기</Text>
                       </HapticButton>
-                      <HapticButton style={styles.generalActionBtn}>
+                      <HapticButton
+                        style={styles.generalActionBtn}
+                        onPress={() => handleShareGeneral(item)}
+                      >
                         <Icon name="Share2" size={14} color={colors.onSurfaceVariant} />
                         <Text style={styles.generalActionText}>공유하기</Text>
                       </HapticButton>
@@ -224,13 +293,6 @@ export default function NotificationScreen() {
             <Text style={styles.emptyText}>알림이 없습니다</Text>
           </View>
         )}
-
-        {/* Empty State */}
-        <View style={styles.storyPlaceholder}>
-          <Text style={styles.storyText}>
-            함께 나눌 이야기가 기다리고 있어요
-          </Text>
-        </View>
       </Animated.View>
     </ScrollView>
   );
@@ -239,18 +301,43 @@ export default function NotificationScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.surface },
   content: { padding: spacing.lg, paddingBottom: 100 },
-  header: { marginBottom: spacing.lg },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.onSurface,
+  header: { marginBottom: spacing.md },
+  title: { fontSize: 28, fontWeight: '800', color: colors.onSurface },
+  subtitle: { fontSize: fontSize.lg, color: colors.onSurfaceVariant, marginTop: 8, lineHeight: 24 },
+
+  liveBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.error,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  subtitle: {
-    fontSize: fontSize.lg,
-    color: colors.onSurfaceVariant,
-    marginTop: 8,
-    lineHeight: 24,
+  liveBannerText: { color: '#FFF', fontWeight: '700', fontSize: fontSize.md },
+
+  voiceMsgCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
   },
+  voiceMsgIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryFixed,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voiceMsgTitle: { fontWeight: '700', color: colors.onSurface, fontSize: fontSize.md },
+  voiceMsgSub: { fontSize: fontSize.sm, color: colors.stone500, marginTop: 2 },
+
   chipScroll: { marginBottom: spacing.xl },
   chipRow: { gap: 10 },
   chip: {
@@ -270,14 +357,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  chipText: {
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    color: colors.onSurfaceVariant,
-  },
+  chipText: { fontSize: fontSize.md, fontWeight: '600', color: colors.onSurfaceVariant },
   chipTextActive: { color: colors.white },
 
-  // Emergency
   emergencyCard: {
     backgroundColor: 'rgba(255,218,214,0.3)',
     borderRadius: borderRadius.xxl,
@@ -291,63 +373,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   emergencyIconWrap: {
-    width: 48,
-    height: 48,
+    width: 48, height: 48,
     borderRadius: borderRadius.lg,
     backgroundColor: colors.error,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  emergencyLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.error,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  emergencyTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.onErrorContainer,
-    marginTop: 2,
-  },
-  emergencyTime: {
-    fontSize: fontSize.xs,
-    fontWeight: '500',
-    color: colors.error,
-  },
-  emergencyBody: {
-    fontSize: fontSize.lg,
-    color: 'rgba(147,0,10,0.8)',
-    lineHeight: 24,
-    marginBottom: spacing.lg,
-  },
+  emergencyLabel: { fontSize: fontSize.xs, fontWeight: '700', color: colors.error, textTransform: 'uppercase', letterSpacing: 1 },
+  emergencyTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.onErrorContainer, marginTop: 2 },
+  emergencyTime: { fontSize: fontSize.xs, fontWeight: '500', color: colors.error },
+  emergencyBody: { fontSize: fontSize.lg, color: 'rgba(147,0,10,0.8)', lineHeight: 24, marginBottom: spacing.lg },
   emergencyActions: { flexDirection: 'row', gap: 8 },
-  emergencyBtn: {
-    flex: 1,
-    backgroundColor: colors.error,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-  },
-  emergencyBtnText: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: fontSize.lg,
-  },
-  emergencyDismissBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(255,255,255,0.6)',
-    alignItems: 'center',
-  },
-  emergencyDismissText: {
-    color: colors.onErrorContainer,
-    fontWeight: '600',
-  },
+  emergencyBtn: { flex: 1, backgroundColor: colors.error, paddingVertical: 14, borderRadius: borderRadius.lg, alignItems: 'center' },
+  emergencyBtnText: { color: colors.white, fontWeight: '700', fontSize: fontSize.lg },
+  emergencyDismissBtn: { paddingHorizontal: 20, paddingVertical: 14, borderRadius: borderRadius.lg, backgroundColor: 'rgba(255,255,255,0.6)', alignItems: 'center' },
+  emergencyDismissText: { color: colors.onErrorContainer, fontWeight: '600' },
 
-  // Warning
   warningCard: {
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: borderRadius.xxl,
@@ -356,56 +396,16 @@ const styles = StyleSheet.create({
     borderLeftWidth: 8,
     borderLeftColor: colors.tertiary,
   },
-  warningLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  warningLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.tertiary,
-  },
-  warningTitle: {
-    fontSize: fontSize.xl,
-    fontWeight: '700',
-    color: colors.onSurface,
-    marginBottom: 4,
-  },
-  warningBody: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    lineHeight: 22,
-    marginBottom: spacing.md,
-  },
-  checkersRow: {
-    backgroundColor: colors.surfaceContainerLow,
-    padding: 12,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.md,
-  },
-  checkersText: {
-    fontSize: fontSize.xs,
-    color: colors.onSurfaceVariant,
-    fontWeight: '500',
-  },
+  warningLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  warningLabel: { fontSize: fontSize.xs, fontWeight: '700', color: colors.tertiary },
+  warningTitle: { fontSize: fontSize.xl, fontWeight: '700', color: colors.onSurface, marginBottom: 4 },
+  warningBody: { fontSize: fontSize.md, color: colors.onSurfaceVariant, lineHeight: 22, marginBottom: spacing.md },
   warningBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.tertiary,
-    paddingVertical: 14,
-    borderRadius: borderRadius.lg,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: colors.tertiary, paddingVertical: 14, borderRadius: borderRadius.lg,
   },
-  warningBtnText: {
-    color: colors.white,
-    fontWeight: '700',
-    fontSize: fontSize.lg,
-  },
+  warningBtnText: { color: colors.white, fontWeight: '700', fontSize: fontSize.lg },
 
-  // General
   generalCard: {
     backgroundColor: colors.surfaceContainerLow,
     borderRadius: borderRadius.xxl,
@@ -413,75 +413,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     overflow: 'hidden',
   },
-  generalInner: {
-    backgroundColor: 'rgba(255,255,255,0.4)',
-    borderRadius: 28,
-    padding: spacing.lg,
-  },
-  generalRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  generalImage: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.lg,
-  },
-  generalHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  generalLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.secondary,
-  },
+  generalInner: { backgroundColor: 'rgba(255,255,255,0.4)', borderRadius: 28, padding: spacing.lg },
+  generalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  generalImage: { width: 56, height: 56, borderRadius: borderRadius.lg },
+  generalHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  generalLabel: { fontSize: fontSize.xs, fontWeight: '700', color: colors.secondary },
   generalTime: { fontSize: fontSize.xs, color: colors.stone400 },
-  generalTitle: {
-    fontWeight: '700',
-    color: colors.onSurface,
-    marginBottom: 4,
-  },
-  generalBody: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    marginBottom: 12,
-  },
+  generalTitle: { fontWeight: '700', color: colors.onSurface, marginBottom: 4 },
+  generalBody: { fontSize: fontSize.md, color: colors.onSurfaceVariant, marginBottom: 12 },
   generalActions: { flexDirection: 'row', gap: spacing.md },
-  generalActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  generalActionPrimary: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
-  generalActionText: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-  },
+  generalActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  generalActionPrimary: { fontSize: fontSize.xs, fontWeight: '700', color: colors.primaryDark },
+  generalActionText: { fontSize: fontSize.xs, fontWeight: '700', color: colors.onSurfaceVariant },
 
-  empty: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 12,
-  },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 12 },
   emptyText: { color: colors.stone400, fontWeight: '500' },
-
-  storyPlaceholder: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  storyText: {
-    color: colors.stone500,
-    fontWeight: '500',
-    fontStyle: 'italic',
-  },
 });

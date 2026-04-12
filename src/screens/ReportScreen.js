@@ -1,83 +1,109 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   Animated,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
-import { useCollection } from '../hooks/useFirestore';
+import { useSenior } from '../contexts/SeniorContext';
 
-const TABS = ['일간', '주간', '월간'];
+const TABS = ['일간', '주간'];
 
-const HEATMAP = [
-  { label: '06-09', opacity: 0.3 },
-  { label: '09-12', opacity: 0.6 },
-  { label: '12-15', opacity: 0.8 },
-  { label: '15-18', opacity: 1 },
-  { label: '18-21', opacity: 0.5 },
-  { label: '21-24', opacity: 0.2 },
-];
+function formatSeconds(sec) {
+  if (!sec || sec <= 0) return '0분';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0) return `${h}시간 ${m}분`;
+  return `${m}분`;
+}
 
-const MOCK_TIMELINE = [
-  {
-    id: '1',
-    time: '오전 10:24',
-    title: '밝은 미소 3회 감지',
-    desc: '거실에서 손주들의 사진을 보며 따뜻한 표정을 지으셨습니다.',
-    color: colors.secondary,
-    icon: 'smile',
-  },
-  {
-    id: '2',
-    time: '오후 02:15',
-    title: '얼굴 감지 지속 42분',
-    desc: '오후 시간대에 안정적으로 얼굴이 감지되었습니다.',
-    color: colors.primaryDark,
-    icon: 'scan',
-  },
-  {
-    id: '3',
-    time: '오후 04:40',
-    title: '표정 변화 감지',
-    desc: '평소보다 밝은 표정이 자주 포착되었습니다.',
-    color: colors.tertiary,
-    icon: 'eye',
-  },
-];
+function formatHoursDecimal(sec) {
+  if (!sec) return '0';
+  return (sec / 3600).toFixed(1);
+}
 
-function getIcon(name, color) {
-  const iconMap = { smile: 'Smile', scan: 'Scan', eye: 'Eye' };
-  return <Icon name={iconMap[name] || 'Smile'} size={20} color={color} />;
+function getHeatmapFromHourly(hourlyMap) {
+  const blocks = [
+    { label: '06-09', hours: [6, 7, 8] },
+    { label: '09-12', hours: [9, 10, 11] },
+    { label: '12-15', hours: [12, 13, 14] },
+    { label: '15-18', hours: [15, 16, 17] },
+    { label: '18-21', hours: [18, 19, 20] },
+    { label: '21-24', hours: [21, 22, 23] },
+  ];
+
+  const maxPossible = 3 * 3600; // 3시간 (블록당 최대)
+  return blocks.map((block) => {
+    const total = block.hours.reduce((sum, h) => sum + (hourlyMap?.[String(h)] || 0), 0);
+    return { label: block.label, opacity: Math.min(total / maxPossible, 1) || 0.05 };
+  });
 }
 
 export default function ReportScreen() {
   const [activeTab, setActiveTab] = useState(0);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Firestore에서 활동 데이터 가져오기 (DB 연결 시 활성화)
-  const { data: activities, loading } = useCollection('activities', 'timestamp');
-
-  // 실제 데이터가 있으면 사용, 없으면 mock 데이터
-  const timelineData = activities.length > 0 ? activities : MOCK_TIMELINE;
+  const {
+    dailyReport,
+    weeklyReport,
+    loadingReport,
+    fetchDailyReport,
+    fetchWeeklyReport,
+  } = useSenior();
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
+      toValue: 1, duration: 500, useNativeDriver: true,
     }).start();
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 0) fetchDailyReport();
+    else fetchWeeklyReport();
+  }, [activeTab, fetchDailyReport, fetchWeeklyReport]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    if (activeTab === 0) await fetchDailyReport();
+    else await fetchWeeklyReport();
+    setRefreshing(false);
+  }, [activeTab, fetchDailyReport, fetchWeeklyReport]);
+
+  // 일간 데이터
+  const daily = dailyReport || {};
+  const totalSec = daily.total_detection_seconds || 0;
+  const smiles = daily.total_smiles || 0;
+  const sessions = daily.session_count || 0;
+  const moodScore = daily.mood_score || 0;
+  const heatmap = getHeatmapFromHourly(daily.hourly_detection);
+
+  // 주간 데이터
+  const weekly = weeklyReport || {};
+  const avgMood = weekly.avg_mood_score || 0;
+  const avgDetection = weekly.avg_detection_seconds || 0;
+  const avgSmiles = weekly.avg_smiles || 0;
+  const moodTrend = weekly.mood_trend || 'stable';
+  const dailyBreakdown = weekly.daily_breakdown || [];
+
+  // 히트맵에서 가장 활발한 시간대
+  const peakBlock = heatmap.reduce((max, b) => (b.opacity > max.opacity ? b : max), heatmap[0]);
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gradientStart} />
+      }
     >
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Tab Navigation */}
@@ -86,109 +112,213 @@ export default function ReportScreen() {
             <HapticButton
               key={tab}
               onPress={() => setActiveTab(i)}
-              style={[
-                styles.tab,
-                activeTab === i && styles.tabActive,
-              ]}
+              style={[styles.tab, activeTab === i && styles.tabActive]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === i && styles.tabTextActive,
-                ]}
-              >
+              <Text style={[styles.tabText, activeTab === i && styles.tabTextActive]}>
                 {tab}
               </Text>
             </HapticButton>
           ))}
         </View>
 
-        {/* AI Insight */}
-        <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
-          <View style={styles.aiHeader}>
-            <Icon name="Sparkles" size={20} color={colors.white} />
-            <Text style={styles.aiTitle}>AI 주간 분석</Text>
-          </View>
-          <Text style={styles.aiBody}>
-            "이번 주 미소 횟수가 평소보다 20% 높습니다. 가족 사진을 보시며
-            밝은 표정을 자주 지으셨네요."
-          </Text>
-          <View style={styles.aiFooter}>
-            <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.aiFooterText}>
-              지난 7일간의 기록을 바탕으로 분석되었습니다.
-            </Text>
-          </View>
-        </View>
+        {loadingReport && !refreshing && (
+          <ActivityIndicator color={colors.gradientStart} style={{ marginVertical: 20 }} />
+        )}
 
-        {/* Detection Heatmap */}
-        <Card style={styles.heatmapCard}>
-          <View style={styles.heatmapHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>감지 히트맵</Text>
-              <Text style={styles.sectionSub}>시간대별 얼굴 감지 현황</Text>
-            </View>
-            <View style={styles.trendBadge}>
-              <Text style={styles.trendText}>상승세</Text>
-            </View>
-          </View>
-          <View style={styles.heatmapGrid}>
-            {HEATMAP.map((item) => (
-              <View key={item.label} style={styles.heatmapCol}>
-                <View
-                  style={[
-                    styles.heatmapBlock,
-                    { opacity: item.opacity, backgroundColor: item.opacity > 0.7 ? colors.primaryDark : item.opacity > 0.4 ? colors.secondaryContainer : colors.tertiaryFixedDim },
-                  ]}
-                />
-                <Text style={styles.heatmapLabel}>{item.label}</Text>
+        {activeTab === 0 ? (
+          /* ===== 일간 리포트 ===== */
+          <>
+            {/* AI Insight */}
+            <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
+              <View style={styles.aiHeader}>
+                <Icon name="Sparkles" size={20} color={colors.white} />
+                <Text style={styles.aiTitle}>오늘의 분석</Text>
               </View>
-            ))}
-          </View>
-          <Text style={styles.heatmapNote}>
-            오후 3시에서 6시 사이에 가장 활발한 웃음이 기록되었습니다.
-          </Text>
-        </Card>
-
-        {/* Timeline */}
-        <Text style={styles.sectionTitle2}>오늘의 타임라인</Text>
-        {timelineData.map((item) => (
-          <View
-            key={item.id}
-            style={[styles.timelineCard, { borderLeftColor: item.color }]}
-          >
-            <View style={styles.timelineIcon}>
-              {getIcon(item.icon, item.color)}
-            </View>
-            <View style={styles.timelineContent}>
-              <Text style={[styles.timelineTime, { color: item.color }]}>
-                {item.time || item.timestamp}
+              <Text style={styles.aiBody}>
+                {moodScore >= 80
+                  ? `오늘 미소가 ${smiles}회 감지되었습니다. 밝은 하루를 보내고 계세요.`
+                  : moodScore >= 50
+                  ? `오늘 ${sessions}번의 활동 세션이 감지되었습니다.`
+                  : totalSec > 0
+                  ? '오늘은 평소보다 조용한 하루입니다. 안부를 확인해보세요.'
+                  : '아직 오늘의 활동 데이터가 수집되지 않았습니다.'}
               </Text>
-              <Text style={styles.timelineTitle}>{item.title}</Text>
-              <Text style={styles.timelineDesc}>{item.desc || item.description}</Text>
+              <View style={styles.aiFooter}>
+                <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.aiFooterText}>
+                  오늘 하루의 기록을 바탕으로 분석되었습니다.
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
 
-        {/* Weekly Comparison */}
-        <View style={styles.compareRow}>
-          <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
-            <Icon name="Smile" size={20} color={colors.onSurface} />
-            <Text style={styles.compareLabel}>긍정 정서</Text>
-            <View style={styles.compareValueRow}>
-              <Text style={styles.compareValue}>88%</Text>
-              <Text style={styles.compareSub}>지난주 대비 +5%</Text>
+            {/* Detection Heatmap */}
+            <Card style={styles.heatmapCard}>
+              <View style={styles.heatmapHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>감지 히트맵</Text>
+                  <Text style={styles.sectionSub}>시간대별 얼굴 감지 현황</Text>
+                </View>
+              </View>
+              <View style={styles.heatmapGrid}>
+                {heatmap.map((item) => (
+                  <View key={item.label} style={styles.heatmapCol}>
+                    <View
+                      style={[
+                        styles.heatmapBlock,
+                        {
+                          opacity: Math.max(item.opacity, 0.08),
+                          backgroundColor:
+                            item.opacity > 0.7
+                              ? colors.primaryDark
+                              : item.opacity > 0.4
+                              ? colors.secondaryContainer
+                              : colors.tertiaryFixedDim,
+                        },
+                      ]}
+                    />
+                    <Text style={styles.heatmapLabel}>{item.label}</Text>
+                  </View>
+                ))}
+              </View>
+              {peakBlock.opacity > 0.1 && (
+                <Text style={styles.heatmapNote}>
+                  {peakBlock.label}시 사이에 가장 활발한 활동이 기록되었습니다.
+                </Text>
+              )}
+            </Card>
+
+            {/* Daily Stats Summary */}
+            <View style={styles.compareRow}>
+              <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
+                <Icon name="Smile" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>기분 점수</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{moodScore}</Text>
+                  <Text style={styles.compareSub}>/ 100점</Text>
+                </View>
+              </View>
+              <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
+                <Icon name="Scan" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>감지 시간</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{formatHoursDecimal(totalSec)}</Text>
+                  <Text style={styles.compareSub}>시간</Text>
+                </View>
+              </View>
             </View>
-          </View>
-          <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
-            <Icon name="Scan" size={20} color={colors.onSurface} />
-            <Text style={styles.compareLabel}>감지 시간</Text>
-            <View style={styles.compareValueRow}>
-              <Text style={styles.compareValue}>14.2</Text>
-              <Text style={styles.compareSub}>시간/일 평균</Text>
+          </>
+        ) : (
+          /* ===== 주간 리포트 ===== */
+          <>
+            {/* AI Insight */}
+            <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
+              <View style={styles.aiHeader}>
+                <Icon name="Sparkles" size={20} color={colors.white} />
+                <Text style={styles.aiTitle}>AI 주간 분석</Text>
+              </View>
+              <Text style={styles.aiBody}>
+                {moodTrend === 'improving'
+                  ? `이번 주 평균 기분 점수가 ${avgMood.toFixed(0)}점으로 상승 추세입니다.`
+                  : moodTrend === 'declining'
+                  ? `이번 주 기분 점수가 다소 하락했습니다. 안부를 자주 확인해주세요.`
+                  : `이번 주 평균 기분 점수는 ${avgMood.toFixed(0)}점으로 안정적입니다.`}
+              </Text>
+              <View style={styles.aiFooter}>
+                <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.aiFooterText}>
+                  지난 7일간의 기록을 바탕으로 분석되었습니다.
+                </Text>
+              </View>
             </View>
-          </View>
-        </View>
+
+            {/* Weekly Bar Chart */}
+            {dailyBreakdown.length > 0 && (
+              <Card style={styles.chartCard} variant="low">
+                <View style={styles.chartHeader}>
+                  <Text style={styles.chartTitle}>일별 감지 시간</Text>
+                  <Text style={styles.chartSub}>지난 7일간</Text>
+                </View>
+                <View style={styles.barsContainer}>
+                  {dailyBreakdown.map((item, i) => {
+                    const maxSec = Math.max(...dailyBreakdown.map((d) => d.total_detection_seconds || 0), 1);
+                    const val = item.total_detection_seconds || 0;
+                    const date = new Date(item.date);
+                    const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+                    const isToday = i === dailyBreakdown.length - 1;
+                    return (
+                      <View key={item.date} style={styles.barWrapper}>
+                        <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: Math.max((val / maxSec) * 120, 4),
+                              backgroundColor: isToday ? colors.gradientStart : '#FDBA74',
+                            },
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.barLabel,
+                            isToday && { color: colors.gradientStart, fontWeight: '700' },
+                          ]}
+                        >
+                          {dayName}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </Card>
+            )}
+
+            {/* Weekly Comparison */}
+            <View style={styles.compareRow}>
+              <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
+                <Icon name="Smile" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>평균 기분</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{avgMood.toFixed(0)}</Text>
+                  <Text style={styles.compareSub}>점/일 평균</Text>
+                </View>
+              </View>
+              <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
+                <Icon name="Scan" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>감지 시간</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{formatHoursDecimal(avgDetection)}</Text>
+                  <Text style={styles.compareSub}>시간/일 평균</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.compareRow, { marginTop: 0 }]}>
+              <View style={[styles.compareCard, { backgroundColor: colors.primaryFixed }]}>
+                <Icon name="Heart" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>평균 미소</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{avgSmiles.toFixed(0)}</Text>
+                  <Text style={styles.compareSub}>회/일 평균</Text>
+                </View>
+              </View>
+              <View style={[styles.compareCard, { backgroundColor: colors.emerald100 }]}>
+                <Icon name="Activity" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>추세</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>
+                    {moodTrend === 'improving' ? '↑' : moodTrend === 'declining' ? '↓' : '→'}
+                  </Text>
+                  <Text style={styles.compareSub}>
+                    {moodTrend === 'improving'
+                      ? '상승세'
+                      : moodTrend === 'declining'
+                      ? '하락세'
+                      : '안정적'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </>
+        )}
       </Animated.View>
     </ScrollView>
   );
@@ -269,17 +399,6 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     marginTop: 4,
   },
-  trendBadge: {
-    backgroundColor: colors.primaryFixed,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 9999,
-  },
-  trendText: {
-    fontSize: fontSize.sm,
-    fontWeight: '700',
-    color: colors.primaryDark,
-  },
   heatmapGrid: {
     flexDirection: 'row',
     gap: 10,
@@ -297,54 +416,34 @@ const styles = StyleSheet.create({
     color: colors.onSurfaceVariant,
     textAlign: 'center',
   },
-  sectionTitle2: {
+  chartCard: { marginBottom: spacing.lg, padding: spacing.lg },
+  chartHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  chartTitle: {
     fontSize: fontSize.xl,
     fontWeight: '700',
     color: colors.onSurface,
-    marginBottom: spacing.md,
-    paddingHorizontal: 4,
   },
-  timelineCard: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: borderRadius.xxl,
-    padding: 20,
+  chartSub: { fontSize: fontSize.xs, color: colors.stone400 },
+  barsContainer: {
     flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'flex-start',
-    borderLeftWidth: 4,
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    height: 140,
+    paddingHorizontal: 8,
   },
-  timelineIcon: {
-    backgroundColor: colors.white,
-    padding: 8,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  timelineContent: { flex: 1 },
-  timelineTime: {
-    fontSize: fontSize.xs,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  timelineTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: '500',
-    color: colors.onSurface,
-  },
-  timelineDesc: {
-    fontSize: fontSize.md,
-    color: colors.onSurfaceVariant,
-    marginTop: 4,
-    lineHeight: 20,
-  },
+  barWrapper: { alignItems: 'center', gap: 8, flex: 1 },
+  bar: { width: 16, borderTopLeftRadius: 999, borderTopRightRadius: 999 },
+  barLabel: { fontSize: fontSize.xs, color: colors.stone400 },
   compareRow: {
     flexDirection: 'row',
     gap: spacing.md,
     marginTop: spacing.lg,
+    marginBottom: spacing.md,
   },
   compareCard: {
     flex: 1,

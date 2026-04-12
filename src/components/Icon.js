@@ -52,6 +52,10 @@ const ICON_MAP = {
 
   // Emergency
   X: { lib: 'feather', name: 'x' },
+
+  // Auth
+  Mail: { lib: 'feather', name: 'mail' },
+  Key: { lib: 'feather', name: 'key' },
 };
 
 export default function Icon({ name, size = 24, color = '#000' }) {

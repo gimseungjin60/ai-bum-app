@@ -46,3 +46,7 @@ backend/routers/__pycache__/
 # generated native folders
 /ios
 /android
+
+# Claude worktree
+ai-bum-app/
+.claude/
