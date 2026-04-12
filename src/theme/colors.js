@@ -44,10 +44,14 @@ export const colors = {
   outline: '#8C706F',
   outlineVariant: '#E0BFBD',
 
+  // On Secondary Container
+  onSecondaryContainer: '#783D01',
+
   // Error
   error: '#BA1A1A',
   errorContainer: '#FFDAD6',
   onError: '#FFFFFF',
+  onErrorContainer: '#93000A',
   onErrorContainer: '#93000A',
 
   // Inverse

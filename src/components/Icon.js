@@ -56,6 +56,8 @@ const ICON_MAP = {
   // Auth
   Mail: { lib: 'feather', name: 'mail' },
   Key: { lib: 'feather', name: 'key' },
+  Plus: { lib: 'feather', name: 'plus' },
+  ChevronLeft: { lib: 'feather', name: 'chevron-left' },
 };
 
 export default function Icon({ name, size = 24, color = '#000' }) {

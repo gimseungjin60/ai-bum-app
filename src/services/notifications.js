@@ -39,8 +39,16 @@ export async function registerForPushNotifications() {
     });
   }
 
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  const token = tokenData.data;
+  let token;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: 'ai-bum',
+    });
+    token = tokenData.data;
+  } catch (e) {
+    console.warn('Expo Push Token 발급 실패:', e);
+    return null;
+  }
 
   // 백엔드에 토큰 등록
   try {

@@ -108,7 +108,7 @@ export default function MedicationScreen({ navigation }) {
           </HapticButton>
           <Text style={styles.title}>복약 관리</Text>
           <HapticButton onPress={() => setShowAdd(!showAdd)}>
-            <Icon name="ImagePlus" size={24} color={colors.gradientStart} />
+            <Icon name="Plus" size={24} color={colors.gradientStart} />
           </HapticButton>
         </View>
 

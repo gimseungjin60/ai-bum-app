@@ -49,7 +49,7 @@ export function SeniorProvider({ children }) {
       sub.remove();
       wsService.disconnect();
     };
-  }, [isPaired]);
+  }, [isPaired, fetchSummary]);
 
   function handleWsMessage(data) {
     if (data.type === 'connection') {
