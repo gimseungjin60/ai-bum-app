@@ -8,29 +8,34 @@ export function useCollection(collectionName, orderField = 'createdAt', limitCou
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const q = query(
-      collection(db, collectionName),
-      orderBy(orderField, 'desc'),
-      limit(limitCount)
-    );
+    try {
+      const q = query(
+        collection(db, collectionName),
+        orderBy(orderField, 'desc'),
+        limit(limitCount)
+      );
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const items = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setData(items);
-        setLoading(false);
-      },
-      (err) => {
-        setError(err);
-        setLoading(false);
-      }
-    );
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          setData(items);
+          setLoading(false);
+        },
+        (err) => {
+          setError(err);
+          setLoading(false);
+        }
+      );
 
-    return unsubscribe;
+      return unsubscribe;
+    } catch (err) {
+      setError(err);
+      setLoading(false);
+    }
   }, [collectionName, orderField, limitCount]);
 
   return { data, loading, error };

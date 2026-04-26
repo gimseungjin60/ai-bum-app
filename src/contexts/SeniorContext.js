@@ -29,6 +29,15 @@ export function SeniorProvider({ children }) {
 
   const appState = useRef(AppState.currentState);
 
+  const fetchSummary = useCallback(async () => {
+    try {
+      const result = await api.getSummary(deviceId);
+      setSummary(result);
+    } catch {
+      // 조용히 실패
+    }
+  }, [deviceId]);
+
   // WebSocket 연결 관리
   useEffect(() => {
     if (!isPaired) return;
@@ -80,15 +89,6 @@ export function SeniorProvider({ children }) {
       fetchSummary();
     }
   }
-
-  const fetchSummary = useCallback(async () => {
-    try {
-      const result = await api.getSummary(deviceId);
-      setSummary(result);
-    } catch {
-      // 조용히 실패
-    }
-  }, [deviceId]);
 
   const fetchDailyReport = useCallback(async (date = '') => {
     setLoadingReport(true);

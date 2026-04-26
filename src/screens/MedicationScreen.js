@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
+  Platform,
   TextInput,
   ActivityIndicator,
   Animated,
@@ -83,19 +84,25 @@ export default function MedicationScreen({ navigation }) {
   }
 
   async function handleDelete(med) {
-    Alert.alert('삭제 확인', `"${med.name}"을(를) 삭제하시겠습니까?`, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '삭제',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.deleteMedication(med.id);
-            setMedications((prev) => prev.filter((m) => m.id !== med.id));
-          } catch {}
-        },
-      },
-    ]);
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm(`"${med.name}"을(를) 삭제하시겠습니까?`)
+      : await new Promise((resolve) =>
+          Alert.alert(
+            '삭제 확인',
+            `"${med.name}"을(를) 삭제하시겠습니까?`,
+            [
+              { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+              { text: '삭제', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { onDismiss: () => resolve(false) }
+          )
+        );
+
+    if (!confirmed) return;
+    try {
+      await api.deleteMedication(med.id);
+      setMedications((prev) => prev.filter((m) => m.id !== med.id));
+    } catch {}
   }
 
   return (

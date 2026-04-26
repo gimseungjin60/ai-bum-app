@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from 'react';
+import { Platform } from 'react-native';
 import {
   View,
   Text,
@@ -14,10 +15,11 @@ import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useAuth } from '../contexts/AuthContext';
+import { api } from '../services/api';
 import { useSenior } from '../contexts/SeniorContext';
 
 export default function SettingsScreen({ navigation }) {
-  const { user, pairedDevice, logout } = useAuth();
+  const { user, pairedDevice, logout, clearPairing } = useAuth();
   const { wsConnected, seniorStatus } = useSenior();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -32,6 +34,29 @@ export default function SettingsScreen({ navigation }) {
       { text: '취소', style: 'cancel' },
       { text: '로그아웃', style: 'destructive', onPress: logout },
     ]);
+  }
+
+  async function handleUnpair() {
+    const confirmed = Platform.OS === 'web'
+      ? window.confirm('기기와의 연결을 해제하면 PIN을 다시 입력해야 합니다. 계속하시겠습니까?')
+      : await new Promise((resolve) =>
+          Alert.alert(
+            '기기 연결 끊기',
+            '기기와의 연결을 해제하면 PIN을 다시 입력해야 합니다. 계속하시겠습니까?',
+            [
+              { text: '취소', style: 'cancel', onPress: () => resolve(false) },
+              { text: '연결 끊기', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { onDismiss: () => resolve(false) }
+          )
+        );
+
+    if (!confirmed) return;
+
+    try {
+      await api.unpairDevice();
+    } catch { /* 기기가 오프라인이어도 로컬 해제는 진행 */ }
+    await clearPairing();
   }
 
   function handleDeleteAccount() {
@@ -179,6 +204,10 @@ export default function SettingsScreen({ navigation }) {
               )}
             </View>
           </View>
+          <HapticButton style={styles.unpairBtn} onPress={handleUnpair}>
+            <Icon name="Unlink" size={14} color={'#BA1A1A99'} />
+            <Text style={styles.unpairText}>기기 연결 끊기</Text>
+          </HapticButton>
         </Card>
 
         {/* Privacy Notice */}
@@ -328,6 +357,8 @@ const styles = StyleSheet.create({
   privacyTitle: { fontWeight: '700', color: colors.onSurface },
   privacyDesc: { fontSize: fontSize.md, color: colors.onSurfaceVariant, lineHeight: 20, marginTop: 4 },
 
+  unpairBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  unpairText: { fontSize: fontSize.sm, fontWeight: '500', color: '#BA1A1A99' },
   dangerZone: { marginTop: spacing.xl, gap: spacing.md, alignItems: 'center' },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logoutText: { fontSize: fontSize.md, fontWeight: '500', color: colors.stone400 },

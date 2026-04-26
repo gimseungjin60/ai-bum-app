@@ -34,15 +34,27 @@ export function AuthProvider({ children }) {
         setToken(storedToken);
         setUser(parsedUser);
 
-        if (storedDevice) {
-          setPairedDevice(JSON.parse(storedDevice));
-        }
-
         // 토큰 유효성 검증
         try {
           await api.getMe();
         } catch {
           await clearAuth();
+          return;
+        }
+
+        if (storedDevice) {
+          // 기기의 실제 페어링 상태 검증 (기기가 응답하면 신뢰, 오프라인이면 로컬 유지)
+          try {
+            const status = await api.getPairingStatus();
+            if (status.is_paired) {
+              setPairedDevice(JSON.parse(storedDevice));
+            } else {
+              await AsyncStorage.removeItem(STORAGE_KEYS.PAIRED);
+            }
+          } catch {
+            // 기기 오프라인 — 로컬 저장 상태 유지
+            setPairedDevice(JSON.parse(storedDevice));
+          }
         }
       }
     } catch (e) {
@@ -81,6 +93,11 @@ export function AuthProvider({ children }) {
     await AsyncStorage.setItem(STORAGE_KEYS.PAIRED, JSON.stringify(deviceInfo));
   }
 
+  async function clearPairing() {
+    setPairedDevice(null);
+    await AsyncStorage.removeItem(STORAGE_KEYS.PAIRED);
+  }
+
   async function clearAuth() {
     api.setToken(null);
     setToken(null);
@@ -110,6 +127,7 @@ export function AuthProvider({ children }) {
         signup,
         logout,
         savePairing,
+        clearPairing,
       }}
     >
       {children}

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
+import { EMOTION_META, sortedEmotions } from '../theme/emotions';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useSenior } from '../contexts/SeniorContext';
@@ -81,9 +82,16 @@ export default function ReportScreen() {
   const daily = dailyReport || {};
   const totalSec = daily.total_detection_seconds || 0;
   const smiles = daily.total_smiles || 0;
-  const sessions = daily.session_count || 0;
+  const visitCount = daily.visit_count ?? daily.session_count ?? 0;
+  const conversationCount = daily.conversation_count ?? 0;
   const moodScore = daily.mood_score || 0;
+  const dailyEmotionCounts = daily.emotion_counts || {};
+  const dailyDominant = daily.dominant_emotion || 'neutral';
   const heatmap = getHeatmapFromHourly(daily.hourly_detection);
+
+  // 일간 감정 목록 (정렬, 상위 4개)
+  const dailyEmList = sortedEmotions(dailyEmotionCounts);
+  const dailyTotalEm = dailyEmList.reduce((s, e) => s + e.count, 0) || 1;
 
   // 주간 데이터
   const weekly = weeklyReport || {};
@@ -136,9 +144,9 @@ export default function ReportScreen() {
               </View>
               <Text style={styles.aiBody}>
                 {moodScore >= 80
-                  ? `오늘 미소가 ${smiles}회 감지되었습니다. 밝은 하루를 보내고 계세요.`
+                  ? `${EMOTION_META[dailyDominant]?.emoji || '😊'} 오늘 주로 ${EMOTION_META[dailyDominant]?.label || '행복'}한 표정이 감지되었습니다.`
                   : moodScore >= 50
-                  ? `오늘 ${sessions}번의 활동 세션이 감지되었습니다.`
+                  ? `오늘 방문 ${visitCount}회, 대화 ${conversationCount}회 기록되었습니다.`
                   : totalSec > 0
                   ? '오늘은 평소보다 조용한 하루입니다. 안부를 확인해보세요.'
                   : '아직 오늘의 활동 데이터가 수집되지 않았습니다.'}
@@ -150,6 +158,45 @@ export default function ReportScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* 오늘의 표정 */}
+            {dailyEmList.length > 0 && (
+              <Card style={[styles.heatmapCard, { marginBottom: spacing.lg }]}>
+                <View style={styles.heatmapHeader}>
+                  <View>
+                    <Text style={styles.sectionTitle}>오늘의 표정</Text>
+                    <Text style={styles.sectionSub}>카메라가 분석한 감정 분포</Text>
+                  </View>
+                </View>
+                {/* Stacked bar */}
+                <View style={styles.emotionStackBar}>
+                  {dailyEmList.slice(0, 4).map((e) => (
+                    <View
+                      key={e.key}
+                      style={[
+                        styles.emotionStackSegment,
+                        {
+                          flex: e.count / dailyTotalEm,
+                          backgroundColor: e.color,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                {/* 라벨 */}
+                <View style={styles.emotionLabelRow}>
+                  {dailyEmList.slice(0, 4).map((e) => (
+                    <View key={e.key} style={styles.emotionLabelItem}>
+                      <View style={[styles.emotionDot, { backgroundColor: e.color }]} />
+                      <Text style={styles.emotionLabelText}>
+                        {e.emoji} {e.label}
+                      </Text>
+                      <Text style={styles.emotionCountText}>{e.count}회</Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
+            )}
 
             {/* Detection Heatmap */}
             <Card style={styles.heatmapCard}>
@@ -206,6 +253,24 @@ export default function ReportScreen() {
                 </View>
               </View>
             </View>
+            <View style={[styles.compareRow, { marginTop: 0 }]}>
+              <View style={[styles.compareCard, { backgroundColor: colors.primaryFixed }]}>
+                <Icon name="Footprints" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>방문</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{visitCount}</Text>
+                  <Text style={styles.compareSub}>회</Text>
+                </View>
+              </View>
+              <View style={[styles.compareCard, { backgroundColor: colors.emerald100 }]}>
+                <Icon name="MessageCircle" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>대화</Text>
+                <View style={styles.compareValueRow}>
+                  <Text style={styles.compareValue}>{conversationCount}</Text>
+                  <Text style={styles.compareSub}>회</Text>
+                </View>
+              </View>
+            </View>
           </>
         ) : (
           /* ===== 주간 리포트 ===== */
@@ -235,38 +300,46 @@ export default function ReportScreen() {
             {dailyBreakdown.length > 0 && (
               <Card style={styles.chartCard} variant="low">
                 <View style={styles.chartHeader}>
-                  <Text style={styles.chartTitle}>일별 감지 시간</Text>
+                  <Text style={styles.chartTitle}>일별 방문 횟수</Text>
                   <Text style={styles.chartSub}>지난 7일간</Text>
                 </View>
                 <View style={styles.barsContainer}>
-                  {dailyBreakdown.map((item, i) => {
-                    const maxSec = Math.max(...dailyBreakdown.map((d) => d.total_detection_seconds || 0), 1);
-                    const val = item.total_detection_seconds || 0;
-                    const date = new Date(item.date);
-                    const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
-                    const isToday = i === dailyBreakdown.length - 1;
-                    return (
-                      <View key={item.date} style={styles.barWrapper}>
-                        <View
-                          style={[
-                            styles.bar,
-                            {
-                              height: Math.max((val / maxSec) * 120, 4),
-                              backgroundColor: isToday ? colors.gradientStart : '#FDBA74',
-                            },
-                          ]}
-                        />
-                        <Text
-                          style={[
-                            styles.barLabel,
-                            isToday && { color: colors.gradientStart, fontWeight: '700' },
-                          ]}
-                        >
-                          {dayName}
-                        </Text>
-                      </View>
-                    );
-                  })}
+                  {(() => {
+                    const maxVal = Math.max(...dailyBreakdown.map((d) => d.visit_count ?? d.session_count ?? 0), 1);
+                    return dailyBreakdown.map((item, i) => {
+                      const val = item.visit_count ?? item.session_count ?? 0;
+                      const date = new Date(item.date);
+                      const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
+                      const isToday = i === dailyBreakdown.length - 1;
+                      const dom = item.dominant_emotion || 'neutral';
+                      const barColor = isToday
+                        ? colors.gradientStart
+                        : (EMOTION_META[dom]?.color || '#FDBA74');
+                      return (
+                        <View key={item.date} style={styles.barWrapper}>
+                          <Text style={styles.barCountText}>{val > 0 ? val : ''}</Text>
+                          <View
+                            style={[
+                              styles.bar,
+                              {
+                                height: Math.max((val / maxVal) * 120, 4),
+                                backgroundColor: barColor,
+                                opacity: isToday ? 1 : 0.7,
+                              },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.barLabel,
+                              isToday && { color: colors.gradientStart, fontWeight: '700' },
+                            ]}
+                          >
+                            {dayName}
+                          </Text>
+                        </View>
+                      );
+                    });
+                  })()}
                 </View>
               </Card>
             )}
@@ -301,10 +374,18 @@ export default function ReportScreen() {
                 </View>
               </View>
               <View style={[styles.compareCard, { backgroundColor: colors.emerald100 }]}>
-                <Icon name="Activity" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>추세</Text>
+                <Icon
+                  name={moodTrend === 'improving' ? 'TrendingUp' : moodTrend === 'declining' ? 'TrendingDown' : 'Minus'}
+                  size={20}
+                  color={colors.onSurface}
+                />
+                <Text style={styles.compareLabel}>기분 추세</Text>
                 <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>
+                  <Text style={[styles.compareValue, {
+                    color: moodTrend === 'improving' ? colors.emerald700
+                      : moodTrend === 'declining' ? colors.error
+                      : colors.onSurface
+                  }]}>
                     {moodTrend === 'improving' ? '↑' : moodTrend === 'declining' ? '↓' : '→'}
                   </Text>
                   <Text style={styles.compareSub}>
@@ -463,4 +544,25 @@ const styles = StyleSheet.create({
     color: colors.onSurface,
   },
   compareSub: { fontSize: fontSize.xs, color: colors.onSurfaceVariant },
+
+  // 감정 분포 스택 바
+  emotionStackBar: {
+    flexDirection: 'row', height: 10, borderRadius: 999,
+    overflow: 'hidden', marginBottom: spacing.md,
+  },
+  emotionStackSegment: { height: 10 },
+  emotionLabelRow: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+  },
+  emotionLabelItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  emotionDot: { width: 8, height: 8, borderRadius: 4 },
+  emotionLabelText: { fontSize: fontSize.xs, fontWeight: '600', color: colors.onSurface },
+  emotionCountText: { fontSize: fontSize.xs, color: colors.stone400 },
+
+  // 주간 차트 바 위 숫자
+  barCountText: { fontSize: 9, color: colors.stone400, fontWeight: '600', height: 14 },
 });

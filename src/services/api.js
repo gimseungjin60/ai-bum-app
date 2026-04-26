@@ -1,4 +1,4 @@
-const BASE_URL = 'http://175.115.28.214:8000';
+const BASE_URL = 'http://localhost:8000';
 
 class ApiService {
   constructor() {
@@ -63,6 +63,21 @@ class ApiService {
     return this.request('/api/pairing/status');
   }
 
+  async unpairDevice() {
+    const response = await fetch(`${BASE_URL}/api/pairing/unpair`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.token}`,
+      },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '서버 오류' }));
+      throw new Error(error.detail || `HTTP ${response.status}`);
+    }
+    return response.json();
+  }
+
   // 리포트
   async getSummary(deviceId = 'frame-001') {
     return this.request(`/api/reports/summary?device_id=${deviceId}`);
@@ -119,6 +134,10 @@ class ApiService {
 
   async getMedicationHistory(limit = 30) {
     return this.request(`/api/medications/history?limit=${limit}`);
+  }
+
+  getVideoStreamUrl() {
+    return `${BASE_URL}/video`;
   }
 }
 

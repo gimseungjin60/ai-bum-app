@@ -58,6 +58,17 @@ const ICON_MAP = {
   Key: { lib: 'feather', name: 'key' },
   Plus: { lib: 'feather', name: 'plus' },
   ChevronLeft: { lib: 'feather', name: 'chevron-left' },
+
+  // Previously unmapped
+  WifiOff: { lib: 'feather', name: 'wifi-off' },
+  Clock: { lib: 'feather', name: 'clock' },
+  Video: { lib: 'feather', name: 'video' },
+  Pill: { lib: 'material', name: 'pill' },
+  Frown: { lib: 'feather', name: 'frown' },
+  Meh: { lib: 'feather', name: 'meh' },
+  TrendingUp: { lib: 'feather', name: 'trending-up' },
+  TrendingDown: { lib: 'feather', name: 'trending-down' },
+  Minus: { lib: 'feather', name: 'minus' },
 };
 
 export default function Icon({ name, size = 24, color = '#000' }) {
