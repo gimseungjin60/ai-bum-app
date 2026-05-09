@@ -1,13 +1,14 @@
 import sys
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 # 모듈 경로 추가
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import CORS_ORIGINS
+from auth import signup, login, verify_token, get_user
 from routers.events import router as events_router
 from routers.reports import router as reports_router
 from routers.photos import router as photos_router
@@ -50,6 +51,9 @@ async def root():
         "name": "AI-bum Backend",
         "version": "1.0.0",
         "endpoints": {
+            "회원가입": "POST /api/auth/signup",
+            "로그인": "POST /api/auth/login",
+            "내 정보": "GET /api/auth/me (Authorization: Bearer <token>)",
             "이벤트 수신": "POST /api/events",
             "하트비트": "POST /api/heartbeat",
             "일간 리포트": "GET /api/reports/daily?device_id=xxx",
@@ -62,3 +66,34 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.post("/api/auth/signup")
+async def api_signup(payload: dict):
+    return signup(
+        email=payload.get("email", ""),
+        password=payload.get("password", ""),
+        name=payload.get("name", ""),
+    )
+
+
+@app.post("/api/auth/login")
+async def api_login(payload: dict):
+    return login(
+        email=payload.get("email", ""),
+        password=payload.get("password", ""),
+    )
+
+
+@app.get("/api/auth/me")
+async def api_me(authorization: str = Header(None)):
+    token = ""
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+    payload = verify_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="토큰이 유효하지 않습니다.")
+    user = get_user(payload["user_id"])
+    if not user:
+        return {"success": False, "error": "사용자를 찾을 수 없습니다."}
+    return {"success": True, "user": user}

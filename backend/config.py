@@ -1,7 +1,10 @@
+import logging
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -10,16 +13,18 @@ load_dotenv()
 # FIREBASE_CREDENTIALS=./serviceAccountKey.json
 FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS", "./serviceAccountKey.json")
 
-# Firebase 초기화 (중복 방지)
-if not firebase_admin._apps:
-    if os.path.exists(FIREBASE_CREDENTIALS):
-        cred = credentials.Certificate(FIREBASE_CREDENTIALS)
-        firebase_admin.initialize_app(cred)
-    else:
-        # 서비스 계정 키가 없으면 기본 자격증명 사용 (GCP 환경)
-        firebase_admin.initialize_app()
-
-db = firestore.client()
+db = None
+try:
+    if not firebase_admin._apps:
+        if os.path.exists(FIREBASE_CREDENTIALS):
+            cred = credentials.Certificate(FIREBASE_CREDENTIALS)
+            firebase_admin.initialize_app(cred)
+        else:
+            # 서비스 계정 키가 없으면 기본 자격증명 사용 (GCP 환경)
+            firebase_admin.initialize_app()
+    db = firestore.client()
+except Exception as e:
+    logger.warning(f"[Firebase] 초기화 실패: {e}")
 
 # 상수
 DEVICE_HEARTBEAT_TIMEOUT = 300  # 5분 동안 하트비트 없으면 오프라인
