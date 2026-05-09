@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
-import { api, BASE_URL } from '../services/api';
+import { api, DEVICE_API_BASE } from '../services/api';
 
 export default function VoiceMessageScreen({ navigation }) {
   const [messages, setMessages] = useState([]);
@@ -50,7 +50,7 @@ export default function VoiceMessageScreen({ navigation }) {
 
   async function loadMessages() {
     try {
-      const result = await api.request('/api/voice-messages');
+      const result = await api.request(DEVICE_API_BASE, '/api/voice-messages');
       setMessages(result.messages || []);
     } catch {
       // 로드 실패 시 빈 목록
@@ -102,7 +102,7 @@ export default function VoiceMessageScreen({ navigation }) {
       });
       formData.append('sender', '보호자');
 
-      const response = await fetch(`${BASE_URL}/api/voice-messages/send`, {
+      const response = await fetch(`${DEVICE_API_BASE}/api/voice-messages/send`, {
         method: 'POST',
         body: formData,
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -143,7 +143,7 @@ export default function VoiceMessageScreen({ navigation }) {
         return;
       }
 
-      const audioUrl = `${BASE_URL}/api/voice-messages/${msg.message_id}/audio`;
+      const audioUrl = `${DEVICE_API_BASE}/api/voice-messages/${msg.message_id}/audio`;
       const { sound } = await Audio.Sound.createAsync({ uri: audioUrl });
       soundRef.current = sound;
       setPlayingId(msg.message_id);

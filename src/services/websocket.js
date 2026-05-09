@@ -1,6 +1,6 @@
-import { BASE_URL } from './api';
+import { DEVICE_API_BASE } from './api';
 
-const WS_URL = BASE_URL.replace(/^http/, 'ws') + '/ws';
+const WS_URL = DEVICE_API_BASE.replace(/^http/, 'ws') + '/ws';
 
 class WebSocketService {
   constructor() {
