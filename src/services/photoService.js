@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../config/firebase';
 
 /**
@@ -29,10 +29,18 @@ export async function uploadPhoto(uri, metadata = {}) {
     caption: metadata.caption || '',
     emoji: metadata.emoji || '😊',
     isMemory: false,
+    displayOnDevice: true,
     createdAt: serverTimestamp(),
   });
 
   return docRef.id;
+}
+
+/**
+ * 시니어 디바이스에 표시할지 여부 토글
+ */
+export async function togglePhotoDisplay(photoId, displayOnDevice) {
+  await updateDoc(doc(db, 'photos', photoId), { displayOnDevice });
 }
 
 /**

@@ -136,6 +136,14 @@ class ApiService {
     return this.request(`/api/medications/history?limit=${limit}`);
   }
 
+  async getMedicationCalendar(from = '', to = '') {
+    const params = [];
+    if (from) params.push(`from=${from}`);
+    if (to) params.push(`to=${to}`);
+    const query = params.length ? `?${params.join('&')}` : '';
+    return this.request(`/api/medications/calendar${query}`);
+  }
+
   getVideoStreamUrl() {
     return `${BASE_URL}/video`;
   }

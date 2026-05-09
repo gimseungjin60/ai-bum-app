@@ -397,6 +397,13 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.actionTitle}>리포트</Text>
             <Text style={styles.actionSub}>감정·활동 분석</Text>
           </HapticButton>
+          <HapticButton style={styles.actionCard} onPress={() => navigation.navigate('Events')}>
+            <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+              <Icon name="Calendar" size={22} color={colors.gradientStart} />
+            </View>
+            <Text style={styles.actionTitle}>일정</Text>
+            <Text style={styles.actionSub}>가족·병원·활동</Text>
+          </HapticButton>
         </View>
 
       </Animated.View>

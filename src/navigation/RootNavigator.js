@@ -9,6 +9,7 @@ import TabNavigator from './TabNavigator';
 import PairingScreen from '../screens/PairingScreen';
 import VoiceMessageScreen from '../screens/VoiceMessageScreen';
 import MedicationScreen from '../screens/MedicationScreen';
+import EventsScreen from '../screens/EventsScreen';
 import { registerForPushNotifications } from '../services/notifications';
 
 const Stack = createNativeStackNavigator();
@@ -30,6 +31,11 @@ function MainApp() {
         <Stack.Screen
           name="Medication"
           component={MedicationScreen}
+          options={{ animation: 'slide_from_right' }}
+        />
+        <Stack.Screen
+          name="Events"
+          component={EventsScreen}
           options={{ animation: 'slide_from_right' }}
         />
       </Stack.Navigator>

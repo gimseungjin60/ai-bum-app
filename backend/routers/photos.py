@@ -20,6 +20,11 @@ async def get_photos(
     photos = []
     for doc in docs:
         data = doc.to_dict()
+        # displayOnDevice == False면 시니어 디바이스에 노출 안 함.
+        # 필드가 없는 옛 문서는 기본 표시(True 취급)로 처리 (호환성).
+        if data.get("displayOnDevice") is False:
+            continue
+
         created_at = data.get("createdAt")
         if created_at and hasattr(created_at, "isoformat"):
             created_at_str = created_at.isoformat()
