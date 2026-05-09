@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    api.setUnauthorizedHandler(() => clearAuth());
     loadStoredAuth();
   }, []);
 
@@ -34,12 +35,15 @@ export function AuthProvider({ children }) {
         setToken(storedToken);
         setUser(parsedUser);
 
-        // 토큰 유효성 검증
+        // 토큰 유효성 검증 — 401만 로그아웃, 네트워크 오류는 유지
         try {
           await api.getMe();
-        } catch {
-          await clearAuth();
-          return;
+        } catch (e) {
+          if (e.message === '인증이 만료되었습니다.') {
+            await clearAuth();
+            return;
+          }
+          // 네트워크 오류 등은 무시하고 로컬 상태 유지
         }
 
         if (storedDevice) {
@@ -65,19 +69,27 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const result = await api.login(email, password);
-    if (result.success) {
-      await saveAuth(result.token, result.user);
+    try {
+      const result = await api.login(email, password);
+      if (result.success) {
+        await saveAuth(result.token, result.user);
+      }
+      return result;
+    } catch (e) {
+      return { success: false, error: e.message || '서버에 연결할 수 없습니다.' };
     }
-    return result;
   }
 
   async function signup(email, password, name) {
-    const result = await api.signup(email, password, name);
-    if (result.success) {
-      await saveAuth(result.token, result.user);
+    try {
+      const result = await api.signup(email, password, name);
+      if (result.success) {
+        await saveAuth(result.token, result.user);
+      }
+      return result;
+    } catch (e) {
+      return { success: false, error: e.message || '서버에 연결할 수 없습니다.' };
     }
-    return result;
   }
 
   async function saveAuth(newToken, newUser) {

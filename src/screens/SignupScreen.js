@@ -41,8 +41,9 @@ export default function SignupScreen({ navigation }) {
     try {
       const result = await signup(email.trim(), password, name.trim());
       if (!result.success) {
-        Alert.alert('가입 실패', result.message || '회원가입에 실패했습니다.');
+        Alert.alert('가입 실패', result.error || result.message || '회원가입에 실패했습니다.');
       }
+      // 성공 시 saveAuth()로 이미 로그인 처리됨 → RootNavigator가 자동으로 MainApp으로 전환
     } catch (e) {
       Alert.alert('연결 오류', '서버에 연결할 수 없습니다.\n네트워크 상태를 확인해주세요.');
     } finally {

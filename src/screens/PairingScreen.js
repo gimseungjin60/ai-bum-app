@@ -16,6 +16,7 @@ import HapticButton from '../components/HapticButton';
 import Icon from '../components/Icon';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
+import { registerForPushNotifications } from '../services/notifications';
 
 const CODE_LENGTH = 6;
 
@@ -66,11 +67,14 @@ export default function PairingScreen() {
 
     setLoading(true);
     try {
+      // FCM 토큰 발급 (실패해도 페어링은 진행)
+      const fcmToken = await registerForPushNotifications() || '';
+
       const result = await api.verifyPairingCode(
         fullCode,
         user.user_id,
         user.name,
-        ''
+        fcmToken
       );
       if (result.success) {
         await savePairing({
@@ -78,10 +82,11 @@ export default function PairingScreen() {
           deviceId: result.device_id,
         });
       } else {
-        Alert.alert('페어링 실패', result.message || '코드를 확인해주세요.');
+        Alert.alert('페어링 실패', result.error || result.message || '코드를 확인해주세요.');
       }
     } catch (e) {
-      Alert.alert('연결 오류', '서버에 연결할 수 없거나 잘못된 코드입니다.');
+      console.error('Pairing Error:', e);
+      Alert.alert('연결 오류', `서버 오류 발생: ${e.message}`);
     } finally {
       setLoading(false);
     }

@@ -31,7 +31,7 @@ export default function LoginScreen({ navigation }) {
     try {
       const result = await login(email.trim(), password);
       if (!result.success) {
-        Alert.alert('로그인 실패', result.message || '이메일 또는 비밀번호를 확인해주세요.');
+        Alert.alert('로그인 실패', result.error || result.message || '이메일 또는 비밀번호를 확인해주세요.');
       }
     } catch (e) {
       Alert.alert('연결 오류', '서버에 연결할 수 없습니다.\n네트워크 상태를 확인해주세요.');
