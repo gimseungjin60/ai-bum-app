@@ -1,8 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { wsService } from '../services/websocket';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
+
+async function showLocalNotification(title, body) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body },
+      trigger: null,
+    });
+  } catch {
+    // 알림 권한 없으면 무시
+  }
+}
 
 const SeniorContext = createContext(null);
 
@@ -19,6 +31,7 @@ export function SeniorProvider({ children }) {
   const [isEmergency, setIsEmergency] = useState(false);
   const [lastMessage, setLastMessage] = useState('');
   const [reminder, setReminder] = useState(null);
+  const [pillConfirmModal, setPillConfirmModal] = useState({ visible: false, time: '' });
 
   // REST API 데이터
   const [summary, setSummary] = useState(null);
@@ -41,6 +54,8 @@ export function SeniorProvider({ children }) {
   // WebSocket 연결 관리
   useEffect(() => {
     if (!isPaired) return;
+
+    Notifications.requestPermissionsAsync().catch(() => {});
 
     wsService.connect();
     const unsub = wsService.subscribe(handleWsMessage);
@@ -88,6 +103,16 @@ export function SeniorProvider({ children }) {
     if (data.status === 'active' || data.status === 'idle') {
       fetchSummary();
     }
+
+    // 알림 (expo-notifications) + 인앱 팝업
+    if (data.type === 'notification') {
+      // 복약 완료 시 인앱 팝업 표시
+      if (data.eventType === 'pill_taken') {
+        setPillConfirmModal({ visible: true, time: data.time || '' });
+      } else {
+        showLocalNotification(data.title, data.body);
+      }
+    }
   }
 
   const fetchDailyReport = useCallback(async (date = '') => {
@@ -132,6 +157,7 @@ export function SeniorProvider({ children }) {
 
   const dismissReminder = useCallback(() => setReminder(null), []);
   const clearEmergency = useCallback(() => setIsEmergency(false), []);
+  const closePillConfirmModal = useCallback(() => setPillConfirmModal({ visible: false, time: '' }), []);
 
   return (
     <SeniorContext.Provider
@@ -147,6 +173,8 @@ export function SeniorProvider({ children }) {
         reminder,
         dismissReminder,
         clearEmergency,
+        pillConfirmModal,
+        closePillConfirmModal,
         // 리포트 데이터
         summary,
         dailyReport,

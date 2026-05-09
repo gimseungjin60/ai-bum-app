@@ -16,6 +16,19 @@ import HapticButton from '../components/HapticButton';
 import { useSenior } from '../contexts/SeniorContext';
 
 const TABS = ['일간', '주간'];
+const REACTIVITY_LABEL = {
+  high: '반응 좋음',
+  normal: '평소 수준',
+  low: '반응 적음',
+  insufficient_data: '데이터 부족',
+};
+
+const REACTIVITY_COLOR = {
+  high: colors.emerald700,
+  normal: colors.gradientStart,
+  low: '#B45309',
+  insufficient_data: colors.stone400,
+};
 
 function formatSeconds(sec) {
   if (!sec || sec <= 0) return '0분';
@@ -81,24 +94,35 @@ export default function ReportScreen() {
   // 일간 데이터
   const daily = dailyReport || {};
   const totalSec = daily.total_detection_seconds || 0;
-  const smiles = daily.total_smiles || 0;
-  const visitCount = daily.visit_count ?? daily.session_count ?? 0;
-  const conversationCount = daily.conversation_count ?? 0;
-  const moodScore = daily.mood_score || 0;
+  const conversationTurns = daily.conversation_turn_count ?? 0;
   const dailyEmotionCounts = daily.emotion_counts || {};
-  const dailyDominant = daily.dominant_emotion || 'neutral';
+  const dailyStatus = daily.reactivity_status || 'insufficient_data';
+  const dailyStatusLabel = REACTIVITY_LABEL[dailyStatus] || REACTIVITY_LABEL.insufficient_data;
+  const dailyStatusColor = REACTIVITY_COLOR[dailyStatus] || REACTIVITY_COLOR.insufficient_data;
+  const dailyFlags = daily.attention_flags || [];
+  const dailySummary = daily.signal_summary?.text || '오늘은 표정과 대화 데이터가 충분하지 않습니다.';
   const heatmap = getHeatmapFromHourly(daily.hourly_detection);
 
   // 일간 감정 목록 (정렬, 상위 4개)
   const dailyEmList = sortedEmotions(dailyEmotionCounts);
   const dailyTotalEm = dailyEmList.reduce((s, e) => s + e.count, 0) || 1;
 
+  // 의미있는 반응 지표 계산
+  const smileRatioPct = Math.round((daily.avg_smile_ratio || 0) * 100);
+  const positiveRatioPct = Math.round((daily.signal_breakdown?.avg_positive_reaction_ratio || 0) * 100);
+  const neutralRatioPct = Math.round((daily.signal_breakdown?.avg_neutral_ratio || 1) * 100);
+  const activeRatioPct = Math.max(0, 100 - neutralRatioPct); // 무표정이 아닌 순간 비율
+  // 무표정을 제외한 감정만 (실제로 의미있는 변화)
+  const nonNeutralEmList = dailyEmList.filter(e => e.key !== 'neutral');
+  const nonNeutralTotal = nonNeutralEmList.reduce((s, e) => s + e.count, 0) || 1;
+
   // 주간 데이터
   const weekly = weeklyReport || {};
-  const avgMood = weekly.avg_mood_score || 0;
   const avgDetection = weekly.avg_detection_seconds || 0;
-  const avgSmiles = weekly.avg_smiles || 0;
-  const moodTrend = weekly.mood_trend || 'stable';
+  const weeklyChange = weekly.reactivity_change || 'insufficient_data';
+  const weeklySummary = weekly.signal_summary?.text || '지난 7일간 데이터가 충분하지 않습니다.';
+  const weeklyFlags = weekly.attention_flags || [];
+  const weeklyInteraction = weekly.interaction_summary || {};
   const dailyBreakdown = weekly.daily_breakdown || [];
 
   // 히트맵에서 가장 활발한 시간대
@@ -140,63 +164,82 @@ export default function ReportScreen() {
             <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
               <View style={styles.aiHeader}>
                 <Icon name="Sparkles" size={20} color={colors.white} />
-                <Text style={styles.aiTitle}>오늘의 분석</Text>
+                <Text style={styles.aiTitle}>오늘의 반응 요약</Text>
               </View>
-              <Text style={styles.aiBody}>
-                {moodScore >= 80
-                  ? `${EMOTION_META[dailyDominant]?.emoji || '😊'} 오늘 주로 ${EMOTION_META[dailyDominant]?.label || '행복'}한 표정이 감지되었습니다.`
-                  : moodScore >= 50
-                  ? `오늘 방문 ${visitCount}회, 대화 ${conversationCount}회 기록되었습니다.`
-                  : totalSec > 0
-                  ? '오늘은 평소보다 조용한 하루입니다. 안부를 확인해보세요.'
-                  : '아직 오늘의 활동 데이터가 수집되지 않았습니다.'}
-              </Text>
+              <Text style={styles.aiBody}>{dailySummary}</Text>
               <View style={styles.aiFooter}>
                 <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
                 <Text style={styles.aiFooterText}>
-                  오늘 하루의 기록을 바탕으로 분석되었습니다.
+                  점수 대신 반응성과 변화 중심으로 정리했습니다.
                 </Text>
               </View>
             </View>
 
-            {/* 오늘의 표정 */}
-            {dailyEmList.length > 0 && (
-              <Card style={[styles.heatmapCard, { marginBottom: spacing.lg }]}>
-                <View style={styles.heatmapHeader}>
-                  <View>
-                    <Text style={styles.sectionTitle}>오늘의 표정</Text>
-                    <Text style={styles.sectionSub}>카메라가 분석한 감정 분포</Text>
+            {/* 반응 순간 카드 — 무표정 제외, 의미있는 지표만 */}
+            <Card style={[styles.heatmapCard, { marginBottom: spacing.lg }]}>
+              <View style={styles.heatmapHeader}>
+                <View>
+                  <Text style={styles.sectionTitle}>오늘의 반응 순간</Text>
+                  <Text style={styles.sectionSub}>카메라로 포착된 표정 변화 지표입니다</Text>
+                </View>
+              </View>
+
+              {/* 3가지 핵심 지표 */}
+              <View style={styles.reactionRow}>
+                {/* 미소 감지 */}
+                <View style={[styles.reactionCard, { backgroundColor: '#ECFDF5' }]}>
+                  <Text style={styles.reactionEmoji}>😊</Text>
+                  <Text style={[styles.reactionValue, { color: '#065F46' }]}>{smileRatioPct}%</Text>
+                  <Text style={styles.reactionLabel}>미소 감지율</Text>
+                </View>
+                {/* 긍정 반응 */}
+                <View style={[styles.reactionCard, { backgroundColor: '#EFF6FF' }]}>
+                  <Text style={styles.reactionEmoji}>✨</Text>
+                  <Text style={[styles.reactionValue, { color: '#1D4ED8' }]}>{positiveRatioPct}%</Text>
+                  <Text style={styles.reactionLabel}>긍정 반응율</Text>
+                </View>
+                {/* 표정 변화 */}
+                <View style={[styles.reactionCard, { backgroundColor: '#FFF7ED' }]}>
+                  <Text style={styles.reactionEmoji}>🎭</Text>
+                  <Text style={[styles.reactionValue, { color: '#92400E' }]}>{activeRatioPct}%</Text>
+                  <Text style={styles.reactionLabel}>표정 변화율</Text>
+                </View>
+              </View>
+
+              {/* 무표정 외 감정 분포 (실제 반응이 있었던 순간들) */}
+              {nonNeutralEmList.length > 0 && (
+                <>
+                  <Text style={[styles.sectionSub, { marginTop: spacing.md, marginBottom: spacing.sm }]}>
+                    표정 변화가 감지된 순간의 분포
+                  </Text>
+                  <View style={styles.emotionStackBar}>
+                    {nonNeutralEmList.slice(0, 5).map((e) => (
+                      <View
+                        key={e.key}
+                        style={[
+                          styles.emotionStackSegment,
+                          { flex: e.count / nonNeutralTotal, backgroundColor: e.color },
+                        ]}
+                      />
+                    ))}
                   </View>
-                </View>
-                {/* Stacked bar */}
-                <View style={styles.emotionStackBar}>
-                  {dailyEmList.slice(0, 4).map((e) => (
-                    <View
-                      key={e.key}
-                      style={[
-                        styles.emotionStackSegment,
-                        {
-                          flex: e.count / dailyTotalEm,
-                          backgroundColor: e.color,
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-                {/* 라벨 */}
-                <View style={styles.emotionLabelRow}>
-                  {dailyEmList.slice(0, 4).map((e) => (
-                    <View key={e.key} style={styles.emotionLabelItem}>
-                      <View style={[styles.emotionDot, { backgroundColor: e.color }]} />
-                      <Text style={styles.emotionLabelText}>
-                        {e.emoji} {e.label}
-                      </Text>
-                      <Text style={styles.emotionCountText}>{e.count}회</Text>
-                    </View>
-                  ))}
-                </View>
-              </Card>
-            )}
+                  <View style={styles.emotionLabelRow}>
+                    {nonNeutralEmList.slice(0, 5).map((e) => (
+                      <View key={e.key} style={styles.emotionLabelItem}>
+                        <View style={[styles.emotionDot, { backgroundColor: e.color }]} />
+                        <Text style={styles.emotionLabelText}>{e.emoji} {e.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              {nonNeutralEmList.length === 0 && (
+                <Text style={[styles.sectionSub, { textAlign: 'center', marginTop: spacing.md }]}>
+                  오늘은 표정 변화 데이터가 아직 없어요
+                </Text>
+              )}
+            </Card>
 
             {/* Detection Heatmap */}
             <Card style={styles.heatmapCard}>
@@ -238,11 +281,8 @@ export default function ReportScreen() {
             <View style={styles.compareRow}>
               <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
                 <Icon name="Smile" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>기분 점수</Text>
-                <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>{moodScore}</Text>
-                  <Text style={styles.compareSub}>/ 100점</Text>
-                </View>
+                <Text style={styles.compareLabel}>반응성</Text>
+                <Text style={[styles.compareValue, { color: dailyStatusColor }]}>{dailyStatusLabel}</Text>
               </View>
               <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
                 <Icon name="Scan" size={20} color={colors.onSurface} />
@@ -255,20 +295,17 @@ export default function ReportScreen() {
             </View>
             <View style={[styles.compareRow, { marginTop: 0 }]}>
               <View style={[styles.compareCard, { backgroundColor: colors.primaryFixed }]}>
-                <Icon name="Footprints" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>방문</Text>
+                <Icon name="MessageCircle" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>대화 참여</Text>
                 <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>{visitCount}</Text>
-                  <Text style={styles.compareSub}>회</Text>
+                  <Text style={styles.compareValue}>{conversationTurns}</Text>
+                  <Text style={styles.compareSub}>턴</Text>
                 </View>
               </View>
               <View style={[styles.compareCard, { backgroundColor: colors.emerald100 }]}>
-                <Icon name="MessageCircle" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>대화</Text>
-                <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>{conversationCount}</Text>
-                  <Text style={styles.compareSub}>회</Text>
-                </View>
+                <Icon name="AlertTriangle" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>주의 신호</Text>
+                <Text style={styles.compareSub}>{dailyFlags.length ? dailyFlags.join(' · ') : '특이 신호 없음'}</Text>
               </View>
             </View>
           </>
@@ -279,19 +316,13 @@ export default function ReportScreen() {
             <View style={[styles.aiCard, { backgroundColor: colors.primaryDark }]}>
               <View style={styles.aiHeader}>
                 <Icon name="Sparkles" size={20} color={colors.white} />
-                <Text style={styles.aiTitle}>AI 주간 분석</Text>
+                <Text style={styles.aiTitle}>주간 반응 변화</Text>
               </View>
-              <Text style={styles.aiBody}>
-                {moodTrend === 'improving'
-                  ? `이번 주 평균 기분 점수가 ${avgMood.toFixed(0)}점으로 상승 추세입니다.`
-                  : moodTrend === 'declining'
-                  ? `이번 주 기분 점수가 다소 하락했습니다. 안부를 자주 확인해주세요.`
-                  : `이번 주 평균 기분 점수는 ${avgMood.toFixed(0)}점으로 안정적입니다.`}
-              </Text>
+              <Text style={styles.aiBody}>{weeklySummary}</Text>
               <View style={styles.aiFooter}>
                 <Icon name="Calendar" size={12} color="rgba(255,255,255,0.8)" />
                 <Text style={styles.aiFooterText}>
-                  지난 7일간의 기록을 바탕으로 분석되었습니다.
+                  지난 7일간의 반응 변화와 대화 기록을 바탕으로 정리했습니다.
                 </Text>
               </View>
             </View>
@@ -311,10 +342,9 @@ export default function ReportScreen() {
                       const date = new Date(item.date);
                       const dayName = ['일', '월', '화', '수', '목', '금', '토'][date.getDay()];
                       const isToday = i === dailyBreakdown.length - 1;
-                      const dom = item.dominant_emotion || 'neutral';
                       const barColor = isToday
                         ? colors.gradientStart
-                        : (EMOTION_META[dom]?.color || '#FDBA74');
+                        : (REACTIVITY_COLOR[item.reactivity_status] || '#FDBA74');
                       return (
                         <View key={item.date} style={styles.barWrapper}>
                           <Text style={styles.barCountText}>{val > 0 ? val : ''}</Text>
@@ -348,11 +378,12 @@ export default function ReportScreen() {
             <View style={styles.compareRow}>
               <View style={[styles.compareCard, { backgroundColor: colors.tertiaryFixed }]}>
                 <Icon name="Smile" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>평균 기분</Text>
-                <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>{avgMood.toFixed(0)}</Text>
-                  <Text style={styles.compareSub}>점/일 평균</Text>
-                </View>
+                <Text style={styles.compareLabel}>주간 반응 변화</Text>
+                <Text style={styles.compareSub}>
+                  {weeklyChange === 'improved' ? '평소보다 반응 증가' :
+                    weeklyChange === 'declined' ? '평소보다 반응 감소' :
+                    weeklyChange === 'stable' ? '평소 수준 유지' : '비교 데이터 부족'}
+                </Text>
               </View>
               <View style={[styles.compareCard, { backgroundColor: colors.secondaryFixed }]}>
                 <Icon name="Scan" size={20} color={colors.onSurface} />
@@ -366,36 +397,21 @@ export default function ReportScreen() {
 
             <View style={[styles.compareRow, { marginTop: 0 }]}>
               <View style={[styles.compareCard, { backgroundColor: colors.primaryFixed }]}>
-                <Icon name="Heart" size={20} color={colors.onSurface} />
-                <Text style={styles.compareLabel}>평균 미소</Text>
+                <Icon name="MessageCircle" size={20} color={colors.onSurface} />
+                <Text style={styles.compareLabel}>대화 빈도</Text>
                 <View style={styles.compareValueRow}>
-                  <Text style={styles.compareValue}>{avgSmiles.toFixed(0)}</Text>
-                  <Text style={styles.compareSub}>회/일 평균</Text>
+                  <Text style={styles.compareValue}>{weeklyInteraction.conversation_count ?? 0}</Text>
+                  <Text style={styles.compareSub}>회 / 7일</Text>
                 </View>
               </View>
               <View style={[styles.compareCard, { backgroundColor: colors.emerald100 }]}>
                 <Icon
-                  name={moodTrend === 'improving' ? 'TrendingUp' : moodTrend === 'declining' ? 'TrendingDown' : 'Minus'}
+                  name={weeklyChange === 'improved' ? 'TrendingUp' : weeklyChange === 'declined' ? 'TrendingDown' : 'Minus'}
                   size={20}
                   color={colors.onSurface}
                 />
-                <Text style={styles.compareLabel}>기분 추세</Text>
-                <View style={styles.compareValueRow}>
-                  <Text style={[styles.compareValue, {
-                    color: moodTrend === 'improving' ? colors.emerald700
-                      : moodTrend === 'declining' ? colors.error
-                      : colors.onSurface
-                  }]}>
-                    {moodTrend === 'improving' ? '↑' : moodTrend === 'declining' ? '↓' : '→'}
-                  </Text>
-                  <Text style={styles.compareSub}>
-                    {moodTrend === 'improving'
-                      ? '상승세'
-                      : moodTrend === 'declining'
-                      ? '하락세'
-                      : '안정적'}
-                  </Text>
-                </View>
+                <Text style={styles.compareLabel}>주의 신호</Text>
+                <Text style={styles.compareSub}>{weeklyFlags.length ? weeklyFlags.join(' · ') : '특이 신호 없음'}</Text>
               </View>
             </View>
           </>
@@ -561,7 +577,23 @@ const styles = StyleSheet.create({
   },
   emotionDot: { width: 8, height: 8, borderRadius: 4 },
   emotionLabelText: { fontSize: fontSize.xs, fontWeight: '600', color: colors.onSurface },
-  emotionCountText: { fontSize: fontSize.xs, color: colors.stone400 },
+
+  // 반응 순간 지표 카드
+  reactionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  reactionCard: {
+    flex: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+    gap: 4,
+  },
+  reactionEmoji: { fontSize: 22 },
+  reactionValue: { fontSize: 20, fontWeight: '800' },
+  reactionLabel: { fontSize: fontSize.xs, color: colors.onSurfaceVariant, textAlign: 'center' },
 
   // 주간 차트 바 위 숫자
   barCountText: { fontSize: 9, color: colors.stone400, fontWeight: '600', height: 14 },

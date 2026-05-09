@@ -52,6 +52,7 @@ const ICON_MAP = {
 
   // Emergency
   X: { lib: 'feather', name: 'x' },
+  Unlink: { lib: 'feather', name: 'link-2' },
 
   // Auth
   Mail: { lib: 'feather', name: 'mail' },

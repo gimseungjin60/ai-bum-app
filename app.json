@@ -13,7 +13,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.aibum.app"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "ai-bum-app"
+      }
     },
     "android": {
       "adaptiveIcon": {

@@ -15,7 +15,8 @@ import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useSenior } from '../contexts/SeniorContext';
 import { api } from '../services/api';
-
+import { WebView } from 'react-native-webview';
+import PillConfirmModal from '../components/PillConfirmModal';
 const STATUS_LABEL = {
   idle: '대기 중',
   greeting: '어르신 인식됨',
@@ -38,11 +39,37 @@ function formatSeconds(sec) {
   return `${m}분`;
 }
 
-function getMoodEmoji(score) {
-  if (score >= 80) return '😊';
-  if (score >= 60) return '🙂';
-  if (score >= 40) return '😐';
-  return '😔';
+const REACTIVITY_LABEL = {
+  high: '반응 좋음',
+  normal: '평소 수준',
+  low: '반응 적음',
+  insufficient_data: '데이터 부족',
+};
+
+const REACTIVITY_COLOR = {
+  high: colors.emerald700,
+  normal: colors.gradientStart,
+  low: '#B45309',
+  insufficient_data: colors.stone400,
+};
+
+const WEEKLY_BAR_COLOR = {
+  high: colors.emerald700,
+  normal: colors.gradientStart,
+  low: '#F59E0B',
+  insufficient_data: colors.primaryFixed,
+};
+
+function formatAttentionFlags(flags = []) {
+  const labels = {
+    emergency: '즉시 확인 필요',
+    low_reactivity: '반응 적음',
+    no_conversation: '대화 없음',
+    flat_affect: '표정 변화 적음',
+    insufficient_data: '데이터 부족',
+    engaged_conversation: '대화 참여 높음',
+  };
+  return flags.map((flag) => labels[flag]).filter(Boolean);
 }
 
 function SectionHeader({ title, sub, action, onAction }) {
@@ -77,6 +104,8 @@ export default function HomeScreen({ navigation }) {
     summary,
     weather,
     fetchSummary,
+    pillConfirmModal,
+    closePillConfirmModal,
   } = useSenior();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -105,12 +134,17 @@ export default function HomeScreen({ navigation }) {
 
   const todayStats = summary?.today || {};
   const device = summary?.device || {};
-  const moodScore = todayStats.mood_score ?? 0;
   const totalSeconds = todayStats.total_detection_seconds ?? 0;
   const visitCount = todayStats.visit_count ?? todayStats.session_count ?? 0;
   const conversationCount = todayStats.conversation_count ?? 0;
+  const conversationTurns = todayStats.conversation_turn_count ?? 0;
   const emotionCounts = todayStats.emotion_counts || {};
   const dominantEmotion = todayStats.dominant_emotion || 'neutral';
+  const reactivityStatus = todayStats.reactivity_status || 'insufficient_data';
+  const reactivityLabel = REACTIVITY_LABEL[reactivityStatus] || REACTIVITY_LABEL.insufficient_data;
+  const reactivityColor = REACTIVITY_COLOR[reactivityStatus] || REACTIVITY_COLOR.insufficient_data;
+  const attentionLabels = formatAttentionFlags(todayStats.attention_flags || []);
+  const signalSummary = todayStats.signal_summary?.text || '오늘은 표정과 대화 데이터가 충분하지 않습니다.';
   const currentStatusLabel = STATUS_LABEL[seniorStatus] || '대기 중';
   const currentStatusColor = STATUS_COLOR[seniorStatus] || colors.stone400;
 
@@ -126,10 +160,14 @@ export default function HomeScreen({ navigation }) {
   const weeklyData = (summary?.weekly_chart || []).map((item, i) => {
     const isObj = typeof item === 'object' && item !== null;
     const visits = isObj ? (item.visits ?? 0) : item;
-    const dom = isObj ? (item.dominant_emotion || 'neutral') : 'neutral';
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    return { day: DAY_NAMES[d.getDay()], value: visits, dominant: dom, active: i === 6 };
+    return {
+      day: DAY_NAMES[d.getDay()],
+      value: visits,
+      reactivityStatus: isObj ? (item.reactivity_status || 'insufficient_data') : 'insufficient_data',
+      active: i === 6,
+    };
   });
   const maxWeekly = Math.max(...weeklyData.map((d) => d.value), 1);
 
@@ -143,15 +181,16 @@ export default function HomeScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gradientStart} />
-      }
-    >
-      <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gradientStart} />
+        }
+      >
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
         {/* ─── 오프라인 배너 ─── */}
         {!wsConnected && (
@@ -239,10 +278,14 @@ export default function HomeScreen({ navigation }) {
 
             {liveVisible && (
               <View style={styles.liveStreamWrap}>
-                <Image
-                  source={{ uri: api.getVideoStreamUrl() }}
+                <WebView
+                  source={{ uri: api.getVideoStreamUrl() + `?t=${Date.now()}` }}
                   style={styles.liveStream}
-                  resizeMode="cover"
+                  scrollEnabled={false}
+                  bounces={false}
+                  showsHorizontalScrollIndicator={false}
+                  showsVerticalScrollIndicator={false}
+                  containerStyle={{ backgroundColor: '#111' }}
                 />
                 {/* 오버레이: 좌상단 LIVE + 우하단 닫기 */}
                 <View style={styles.liveOverlayTop}>
@@ -270,13 +313,13 @@ export default function HomeScreen({ navigation }) {
           onAction={() => navigation.navigate('Report')}
         />
         <View style={styles.statsGrid}>
-          {/* 기분 점수 + 감정 분포 바 */}
+          {/* 반응 요약 */}
           <Card style={styles.statCard}>
             <View style={styles.statCardTop}>
-              <Text style={styles.statCardLabel}>기분 점수</Text>
-              <Text style={{ fontSize: 22 }}>{getMoodEmoji(moodScore)}</Text>
+              <Text style={styles.statCardLabel}>오늘의 반응 요약</Text>
+              <Text style={[styles.statusBadge, { color: reactivityColor }]}>{reactivityLabel}</Text>
             </View>
-            <Text style={styles.statCardBig}>{moodScore}<Text style={styles.statCardUnit}>점</Text></Text>
+            <Text style={[styles.statCardHeadline, { color: reactivityColor }]}>{reactivityLabel}</Text>
             {topEmotions.length > 0 ? (
               <>
                 <View style={styles.emotionBar}>
@@ -288,20 +331,19 @@ export default function HomeScreen({ navigation }) {
                   ))}
                 </View>
                 <Text style={styles.emotionLegend}>
-                  {EMOTION_META[dominantEmotion]?.emoji || '😐'} 주로 {EMOTION_META[dominantEmotion]?.label || '평온'}한 하루
+                  {EMOTION_META[dominantEmotion]?.emoji || '😐'} {EMOTION_META[dominantEmotion]?.label || '평온'} 신호가 가장 자주 관찰됨
                 </Text>
+                <Text style={styles.statCardDesc}>{signalSummary}</Text>
               </>
             ) : (
-              <Text style={styles.statCardDesc}>
-                {moodScore >= 80 ? '매우 밝은 하루예요!' : moodScore >= 50 ? '보통 상태예요' : '데이터 수집 중'}
-              </Text>
+              <Text style={styles.statCardDesc}>{signalSummary}</Text>
             )}
           </Card>
 
           {/* 방문 · 대화 · 시간 */}
           <Card style={styles.statCard}>
             <View style={styles.statCardTop}>
-              <Text style={styles.statCardLabel}>오늘 활동</Text>
+              <Text style={styles.statCardLabel}>상호작용 활력</Text>
               <Icon name="Scan" size={18} color={colors.tertiary} />
             </View>
             <View style={styles.miniStatList}>
@@ -311,8 +353,8 @@ export default function HomeScreen({ navigation }) {
               </View>
               <View style={styles.miniStatDivider} />
               <View style={styles.miniStat}>
-                <Text style={styles.miniStatVal}>{conversationCount}</Text>
-                <Text style={styles.miniStatLabel}>대화</Text>
+                <Text style={styles.miniStatVal}>{conversationTurns}</Text>
+                <Text style={styles.miniStatLabel}>대화 턴</Text>
               </View>
               <View style={styles.miniStatDivider} />
               <View style={styles.miniStat}>
@@ -320,8 +362,24 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.miniStatLabel}>시간</Text>
               </View>
             </View>
+            <Text style={styles.statCardDesc}>
+              방문 {visitCount}회, 대화 세션 {conversationCount}회가 기록되었습니다.
+            </Text>
           </Card>
         </View>
+
+        {!!attentionLabels.length && (
+          <Card style={styles.alertCard}>
+            <View style={styles.statCardTop}>
+              <Text style={styles.statCardLabel}>주의 신호</Text>
+              <Icon name="Bell" size={18} color="#92400E" />
+            </View>
+            <Text style={styles.alertSummary}>
+              {attentionLabels.slice(0, 2).join(' · ')}
+            </Text>
+            <Text style={styles.statCardDesc}>점수 대신 변화와 확인 포인트 중심으로 정리했습니다.</Text>
+          </Card>
+        )}
 
         {/* ─── 복약 상태 ─── */}
         <HapticButton
@@ -355,7 +413,7 @@ export default function HomeScreen({ navigation }) {
                 {weeklyData.map((item) => {
                   const barColor = item.active
                     ? colors.gradientStart
-                    : (EMOTION_META[item.dominant]?.color || colors.primaryFixed);
+                    : (WEEKLY_BAR_COLOR[item.reactivityStatus] || colors.primaryFixed);
                   return (
                     <View key={item.day} style={styles.barWrapper}>
                       <Text style={styles.barCount}>{item.value > 0 ? item.value : ''}</Text>
@@ -395,12 +453,19 @@ export default function HomeScreen({ navigation }) {
               <Icon name="BarChart3" size={22} color={colors.gradientStart} />
             </View>
             <Text style={styles.actionTitle}>리포트</Text>
-            <Text style={styles.actionSub}>감정·활동 분석</Text>
+            <Text style={styles.actionSub}>반응·활동 분석</Text>
           </HapticButton>
         </View>
 
       </Animated.View>
-    </ScrollView>
+      </ScrollView>
+
+      <PillConfirmModal
+        visible={pillConfirmModal.visible}
+        time={pillConfirmModal.time}
+        onClose={closePillConfirmModal}
+      />
+    </>
   );
 }
 
@@ -518,8 +583,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   statCardLabel: { fontSize: fontSize.sm, color: colors.stone500, fontWeight: '600' },
-  statCardBig: { fontSize: 38, fontWeight: '800', color: colors.gradientStart, lineHeight: 44 },
-  statCardUnit: { fontSize: fontSize.lg, fontWeight: '700', color: colors.stone400 },
+  statCardHeadline: { fontSize: 28, fontWeight: '800', lineHeight: 34 },
+  statusBadge: { fontSize: fontSize.xs, fontWeight: '800' },
   statCardDesc: { fontSize: fontSize.xs, color: colors.stone500, marginTop: 4 },
   miniStatList: {
     flexDirection: 'row', alignItems: 'center',
@@ -537,6 +602,8 @@ const styles = StyleSheet.create({
   },
   emotionSegment: { height: 6 },
   emotionLegend: { fontSize: fontSize.xs, color: colors.stone500, marginTop: 2 },
+  alertCard: { marginBottom: spacing.lg },
+  alertSummary: { fontSize: fontSize.lg, fontWeight: '700', color: '#92400E' },
 
   // ── 복약 카드
   pillCard: {
