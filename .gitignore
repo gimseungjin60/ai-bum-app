@@ -40,6 +40,12 @@ backend/__pycache__/
 backend/services/__pycache__/
 backend/routers/__pycache__/
 
+# Python 가상환경
+backend/venv/
+
+# Claude 가이드 (로컬용)
+/CLAUDE.md
+
 # typescript
 *.tsbuildinfo
 
