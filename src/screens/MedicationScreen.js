@@ -25,6 +25,14 @@ function formatMD(dateStr) {
   return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 function getStatusKind(day) {
   const p = day?.summary?.prescribed_count || 0;
   const t = day?.summary?.taken_count || 0;
@@ -223,12 +231,17 @@ export default function MedicationScreen({ navigation }) {
               {calendarDays.map((day) => {
                 const kind = getStatusKind(day);
                 const isSelected = day.date === selectedDate;
+                const isToday = day.date === todayISO();
                 const dow = new Date(day.date).getDay();
                 return (
                   <HapticButton
                     key={day.date}
                     onPress={() => setSelectedDate(day.date)}
-                    style={[styles.calendarCell, isSelected && styles.calendarCellSelected]}
+                    style={[
+                      styles.calendarCell,
+                      isToday && !isSelected && styles.calendarCellToday,
+                      isSelected && styles.calendarCellSelected,
+                    ]}
                   >
                     <Text style={[styles.calendarDow, isSelected && styles.calendarTextSelected]}>
                       {DAY_LABELS[dow]}
@@ -554,6 +567,10 @@ const styles = StyleSheet.create({
   },
   calendarCellSelected: {
     backgroundColor: colors.primaryFixed,
+  },
+  calendarCellToday: {
+    borderWidth: 1,
+    borderColor: colors.gradientStart,
   },
   calendarDow: { fontSize: 10, color: colors.stone500, marginBottom: 2 },
   calendarDate: { fontSize: 11, fontWeight: fontWeight.semibold, color: colors.onSurface, marginBottom: 4 },

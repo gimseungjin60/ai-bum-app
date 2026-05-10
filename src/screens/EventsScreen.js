@@ -129,6 +129,7 @@ export default function EventsScreen({ navigation }) {
         type: newType,
         description: newDesc,
       });
+      if (newDate) setSelectedDate(newDate);
       setNewTitle('');
       setNewTime('');
       setNewDesc('');
@@ -178,7 +179,13 @@ export default function EventsScreen({ navigation }) {
 
         {/* 7일 그리드 */}
         <View style={styles.calendarSection}>
-          <Text style={styles.calendarTitle}>이번 주</Text>
+          <View style={styles.calendarTitleRow}>
+            <Text style={styles.calendarTitle}>이번 주</Text>
+            <View style={styles.legendInline}>
+              <View style={[styles.legendDot, { backgroundColor: colors.stone400 }]} />
+              <Text style={styles.legendText}>= 복약</Text>
+            </View>
+          </View>
           <View style={styles.calendarGrid}>
             {weekDays.map((dateStr) => {
               const dayEvs = eventsByDate[dateStr] || [];
@@ -381,12 +388,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.outlineVariant,
   },
+  calendarTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
   calendarTitle: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
     color: colors.onSurface,
-    marginBottom: spacing.sm,
   },
+  legendInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+  legendText: { fontSize: fontSize.xs, color: colors.stone500 },
   calendarGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 4 },
   calendarCell: {
     flex: 1,
