@@ -31,6 +31,7 @@ export function AuthProvider({ children }) {
   const [pairings, setPairings] = useState([]);  // 다중 시니어 페어링
   const [activeSeniorId, setActiveSeniorIdState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pairingVerificationFailed, setPairingVerificationFailed] = useState(false);
 
   useEffect(() => {
     loadStoredAuth();
@@ -88,11 +89,11 @@ export function AuthProvider({ children }) {
         }
 
         if (restoredPairings.length > 0) {
-          // 디바이스 응답 가능 시 검증, 오프라인이면 로컬 유지
+          // 시니어 백엔드 응답으로 페어링 유효성 검증
+          // 실패 시 메모리만 비워 PairingScreen으로 유도 (AsyncStorage는 유지해 재연결 시 자동 복귀)
           try {
             const status = await api.getPairingStatus();
             if (!status.is_paired) {
-              // 디바이스가 페어링 해제 상태로 응답 — 매칭되는 항목만 정리
               restoredPairings = restoredPairings.filter(
                 (p) => p.deviceId !== status.device_id
               );
@@ -102,7 +103,9 @@ export function AuthProvider({ children }) {
               );
             }
           } catch {
-            // 오프라인 — 로컬 유지
+            console.warn('[Auth] 시니어 백엔드 검증 실패 — 페어링 임시 무효화');
+            setPairingVerificationFailed(true);
+            restoredPairings = [];
           }
           setPairings(restoredPairings);
 
@@ -265,6 +268,7 @@ export function AuthProvider({ children }) {
         isPaired: pairings.length > 0,
         savePairing,
         clearPairing,
+        pairingVerificationFailed,
         // 인증
         login,
         signup,
