@@ -239,6 +239,12 @@ export function AuthProvider({ children }) {
   // 활성 페어링 객체 (legacy pairedDevice 호환)
   const activePairing =
     pairings.find((p) => p.deviceId === activeSeniorId) || pairings[0] || null;
+  const activeDeviceId = activePairing?.deviceId || null;
+
+  // 활성 시니어 변경 시 api 인스턴스에 즉시 반영하여 모든 요청에 X-Device-Id 자동 첨부
+  useEffect(() => {
+    api.setActiveSenior(activeDeviceId);
+  }, [activeDeviceId]);
 
   return (
     <AuthContext.Provider
