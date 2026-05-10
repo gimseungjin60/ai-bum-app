@@ -1,4 +1,6 @@
-const BASE_URL = 'http://localhost:8000';
+// 시니어 백엔드(라즈베리파이) 주소. .env의 EXPO_PUBLIC_API_URL 우선 적용.
+// 미설정 시 localhost 폴백 — 갤탭 등 실 디바이스에서는 작동 안 함, .env 설정 필수.
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
 
 class ApiService {
   constructor() {
