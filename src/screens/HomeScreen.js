@@ -6,8 +6,8 @@ import {
   StyleSheet,
   Animated,
   RefreshControl,
-  Image,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import { EMOTION_META, sortedEmotions } from '../theme/emotions';
@@ -84,6 +84,13 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = React.useState(false);
   const [, setTick] = useState(0);
   const [liveVisible, setLiveVisible] = useState(false);
+  const [snapshotTs, setSnapshotTs] = useState(Date.now());
+
+  useEffect(() => {
+    if (!liveVisible) return;
+    const id = setInterval(() => setSnapshotTs(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [liveVisible]);
 
   useEffect(() => {
     Animated.parallel([
@@ -239,18 +246,15 @@ export default function HomeScreen({ navigation }) {
 
             {liveVisible && (
               <View style={styles.liveStreamWrap}>
-                <Image
-                  source={{ uri: api.getVideoStreamUrl() }}
+                <ExpoImage
+                  source={{ uri: api.getSnapshotUrl(snapshotTs) }}
                   style={styles.liveStream}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  recyclingKey="live-snapshot"
+                  transition={0}
+                  cachePolicy="memory"
                 />
-                {/* 오버레이: 좌상단 LIVE + 우하단 닫기 */}
-                <View style={styles.liveOverlayTop}>
-                  <View style={styles.liveOverlayBadge}>
-                    <View style={styles.liveOverlayDot} />
-                    <Text style={styles.liveOverlayText}>LIVE</Text>
-                  </View>
-                </View>
+                {/* 오버레이: 우하단 닫기 */}
                 <HapticButton
                   onPress={() => setLiveVisible(false)}
                   style={styles.liveCloseBtn}
