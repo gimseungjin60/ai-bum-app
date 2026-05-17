@@ -14,13 +14,14 @@ import {
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
 import Icon from '../components/Icon';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../services/api';
+import { functions, auth } from '../config/firebase';
 
 const CODE_LENGTH = 6;
 
 export default function PairingScreen() {
-  const { user, savePairing, logout, pairingVerificationFailed } = useAuth();
+  const { addPairing, logout } = useAuth();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const inputs = useRef([]);
@@ -66,22 +67,29 @@ export default function PairingScreen() {
 
     setLoading(true);
     try {
-      const result = await api.verifyPairingCode(
-        fullCode,
-        user.user_id,
-        user.name,
-        ''
-      );
-      if (result.success) {
-        await savePairing({
-          familyId: result.family_id,
-          deviceId: result.device_id,
-        });
-      } else {
-        Alert.alert('페어링 실패', result.message || '코드를 확인해주세요.');
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        Alert.alert('오류', '로그인이 필요합니다. 다시 로그인해주세요.');
+        return;
+      }
+      const idToken = await currentUser.getIdToken(true);
+      const verify = httpsCallable(functions, 'verifyPairing');
+      const { data } = await verify({ code: fullCode, idToken });
+      if (data.success) {
+        await addPairing(data.deviceId);
       }
     } catch (e) {
-      Alert.alert('연결 오류', '서버에 연결할 수 없거나 잘못된 코드입니다.');
+      const errCode = e?.code || '';
+      const errMsg = e?.message || String(e);
+      if (errCode.includes('not-found')) {
+        Alert.alert('페어링 실패', '유효하지 않은 코드입니다.');
+      } else if (errCode.includes('already-exists')) {
+        Alert.alert('페어링 실패', '이미 사용된 코드입니다. 새 코드를 요청해주세요.');
+      } else if (errCode.includes('deadline-exceeded')) {
+        Alert.alert('페어링 실패', '코드가 만료되었습니다. 시니어 기기에서 새 코드를 확인해주세요.');
+      } else {
+        Alert.alert('디버그 에러', `code: ${errCode}\nmsg: ${errMsg}\nhas_user: ${!!auth.currentUser}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -96,15 +104,6 @@ export default function PairingScreen() {
         contentContainerStyle={styles.inner}
         keyboardShouldPersistTaps="handled"
       >
-        {/* 연결 실패 배너 */}
-        {!!pairingVerificationFailed && (
-          <View style={styles.warnBanner}>
-            <Icon name="WifiOff" size={16} color="#92400E" />
-            <Text style={styles.warnBannerText}>
-              시니어 기기와 연결할 수 없습니다. 기기 전원과 네트워크를 확인 후 PIN을 다시 입력해주세요.
-            </Text>
-          </View>
-        )}
 
         {/* 아이콘 */}
         <View style={styles.iconSection}>

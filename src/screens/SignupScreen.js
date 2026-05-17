@@ -32,19 +32,26 @@ export default function SignupScreen({ navigation }) {
       Alert.alert('입력 오류', '비밀번호가 일치하지 않습니다.');
       return;
     }
-    if (password.length < 4) {
-      Alert.alert('입력 오류', '비밀번호는 4자 이상이어야 합니다.');
+    if (password.length < 6) {
+      Alert.alert('입력 오류', '비밀번호는 6자 이상이어야 합니다.');
       return;
     }
 
     setLoading(true);
     try {
-      const result = await signup(email.trim(), password, name.trim());
-      if (!result.success) {
-        Alert.alert('가입 실패', result.message || '회원가입에 실패했습니다.');
-      }
+      await signup(email.trim(), password, name.trim());
+      // 성공 시 onAuthStateChanged → AuthContext 자동 상태 갱신
     } catch (e) {
-      Alert.alert('연결 오류', '서버에 연결할 수 없습니다.\n네트워크 상태를 확인해주세요.');
+      const code = e?.code || '';
+      if (code === 'auth/email-already-in-use') {
+        Alert.alert('가입 실패', '이미 사용 중인 이메일입니다.');
+      } else if (code === 'auth/weak-password') {
+        Alert.alert('가입 실패', '비밀번호가 너무 단순합니다.');
+      } else if (code === 'auth/invalid-email') {
+        Alert.alert('가입 실패', '올바른 이메일 형식이 아닙니다.');
+      } else {
+        Alert.alert('오류', `${code || e?.message || String(e)}`);
+      }
     } finally {
       setLoading(false);
     }
