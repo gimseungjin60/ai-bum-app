@@ -37,10 +37,19 @@ export async function deleteEvent(eventId) {
   return deleteDoc(doc(db, 'events', eventId));
 }
 
-export function subscribeEvents(callback) {
+export function subscribeEvents(callback, onError) {
   const q = query(collection(db, 'events'), orderBy('date', 'asc'));
-  return onSnapshot(q, (snap) => {
-    const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback(items);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(items);
+    },
+    (error) => {
+      // Firestore Rules로 read 거부되면 여기로 옴 — 빈 배열로 콜백해서 loading 풀어줌
+      console.warn('[events] subscribe error:', error.message);
+      callback([]);
+      if (onError) onError(error);
+    }
+  );
 }

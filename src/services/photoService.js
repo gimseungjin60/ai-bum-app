@@ -5,7 +5,7 @@ import { db, storage } from '../config/firebase';
 /**
  * 사진을 Firebase Storage에 업로드하고 Firestore에 메타데이터 저장
  * @param {string} uri - 로컬 이미지 URI
- * @param {object} metadata - { uploaderName, caption, emoji }
+ * @param {object} metadata - { uploaderName, caption, emoji, deviceId, uploaderUid }
  * @returns {Promise<string>} - 저장된 문서 ID
  */
 export async function uploadPhoto(uri, metadata = {}) {
@@ -22,10 +22,13 @@ export async function uploadPhoto(uri, metadata = {}) {
   const downloadURL = await getDownloadURL(snapshot.ref);
 
   // 4. Firestore photos 컬렉션에 메타데이터 저장
+  // deviceId 기반 공유 — 같은 시니어 기기에 페어링한 가족 모두가 같은 사진 풀을 봄
   const docRef = await addDoc(collection(db, 'photos'), {
     uri: downloadURL,
     storagePath: filename,
     uploaderName: metadata.uploaderName || '가족',
+    uploaderUid: metadata.uploaderUid || null,
+    deviceId: metadata.deviceId || 'frame-001',
     caption: metadata.caption || '',
     emoji: metadata.emoji || '😊',
     isMemory: false,
@@ -49,9 +52,9 @@ export async function togglePhotoDisplay(photoId, displayOnDevice) {
 export async function uploadPhotoWithNotification(uri, metadata = {}) {
   const docId = await uploadPhoto(uri, metadata);
 
-  // 일반 알림 생성
+  // 일반 알림 생성 — 활성 시니어 기기에만
   await addDoc(collection(db, 'notifications'), {
-    device_id: 'frame-001',
+    device_id: metadata.deviceId || 'frame-001',
     type: 'general',
     title: '새로운 사진이 등록되었습니다',
     body: metadata.caption

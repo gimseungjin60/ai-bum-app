@@ -10,12 +10,18 @@ import {
   ActivityIndicator,
   Animated,
   Switch,
+  useWindowDimensions,
 } from 'react-native';
+import {
+  collection, addDoc, updateDoc, deleteDoc,
+  doc, serverTimestamp, onSnapshot, query, orderBy,
+} from 'firebase/firestore';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
 import Card from '../components/Card';
-import { api } from '../services/api';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import { useSenior } from '../contexts/SeniorContext';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -44,6 +50,13 @@ function getStatusKind(day) {
 
 export default function MedicationScreen({ navigation }) {
   const { isPillTaken } = useSenior();
+  const { activeSeniorId } = useAuth();
+  // 태블릿/폰 비율 대응 — 화면 폭 기반으로 캘린더 폰트/dot 크기 조정
+  const { width: screenWidth } = useWindowDimensions();
+  const calDow = Math.max(10, Math.min(18, screenWidth * 0.026));
+  const calDate = Math.max(11, Math.min(20, screenWidth * 0.029));
+  const calDot = Math.max(22, Math.min(36, screenWidth * 0.055));
+  const calDotText = Math.max(10, Math.min(16, screenWidth * 0.024));
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -60,62 +73,56 @@ export default function MedicationScreen({ navigation }) {
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-    loadMedications();
-    loadCalendar();
   }, []);
 
-  const loadMedications = useCallback(async () => {
-    try {
-      const result = await api.getMedications();
-      setMedications(result.medications || []);
-    } catch {
-      // 조용히 실패
-    } finally {
+  // Firestore 실시간 구독 — activeSeniorId가 바뀌면 구독 갱신
+  useEffect(() => {
+    if (!activeSeniorId) {
+      setMedications([]);
       setLoading(false);
+      return;
     }
-  }, []);
+    const q = query(
+      collection(db, 'medications', activeSeniorId, 'items'),
+      orderBy('createdAt', 'asc')
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setMedications(items);
+      setLoading(false);
+    }, () => setLoading(false));
+    return unsub;
+  }, [activeSeniorId]);
 
-  const loadCalendar = useCallback(async () => {
-    try {
-      const result = await api.getMedicationCalendar();
-      const days = result?.days || [];
-      setCalendarDays(days);
-      setStockAlerts(result?.stock_alerts || []);
-      if (days.length && !selectedDate) {
-        setSelectedDate(days[days.length - 1].date);
-      }
-    } catch {
-      setCalendarDays([]);
-      setStockAlerts([]);
-    }
-  }, [selectedDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loadCalendar = useCallback(() => {}, []);
 
   const selectedDay = calendarDays.find((d) => d.date === selectedDate);
 
   async function handleAdd() {
-    if (!newName.trim()) {
-      Alert.alert('입력 오류', '약 이름을 입력해주세요.');
+    if (!newName.trim() || !activeSeniorId) {
+      Alert.alert('입력 오류', activeSeniorId ? '약 이름을 입력해주세요.' : '페어링이 필요합니다.');
       return;
     }
     setSaving(true);
     try {
-      const result = await api.addMedication({
+      const [hour, minute] = (newTime.trim() || '09:00').split(':').map(Number);
+      await addDoc(collection(db, 'medications', activeSeniorId, 'items'), {
         name: newName.trim(),
-        time: newTime.trim(),
+        time: newTime.trim() || '09:00',
+        schedule: [{ hour: hour || 9, minute: minute || 0 }],
         dosage: newDosage.trim(),
         notes: newNotes.trim(),
         stock: Number(newStock) || 0,
+        enabled: true,
+        createdAt: serverTimestamp(),
       });
-      if (result.success) {
-        setMedications((prev) => [...prev, result.medication]);
-        setNewName('');
-        setNewTime('09:00');
-        setNewDosage('');
-        setNewNotes('');
-        setNewStock('');
-        setShowAdd(false);
-        loadCalendar();
-      }
+      setNewName('');
+      setNewTime('09:00');
+      setNewDosage('');
+      setNewNotes('');
+      setNewStock('');
+      setShowAdd(false);
     } catch {
       Alert.alert('오류', '약 추가에 실패했습니다.');
     } finally {
@@ -124,11 +131,11 @@ export default function MedicationScreen({ navigation }) {
   }
 
   async function handleToggle(med) {
+    if (!activeSeniorId) return;
     try {
-      await api.updateMedication(med.id, { enabled: !med.enabled });
-      setMedications((prev) =>
-        prev.map((m) => (m.id === med.id ? { ...m, enabled: !m.enabled } : m))
-      );
+      await updateDoc(doc(db, 'medications', activeSeniorId, 'items', med.id), {
+        enabled: !med.enabled,
+      });
     } catch {}
   }
 
@@ -147,11 +154,9 @@ export default function MedicationScreen({ navigation }) {
           )
         );
 
-    if (!confirmed) return;
+    if (!confirmed || !activeSeniorId) return;
     try {
-      await api.deleteMedication(med.id);
-      setMedications((prev) => prev.filter((m) => m.id !== med.id));
-      loadCalendar();
+      await deleteDoc(doc(db, 'medications', activeSeniorId, 'items', med.id));
     } catch {}
   }
 
@@ -243,20 +248,21 @@ export default function MedicationScreen({ navigation }) {
                       isSelected && styles.calendarCellSelected,
                     ]}
                   >
-                    <Text style={[styles.calendarDow, isSelected && styles.calendarTextSelected]}>
+                    <Text style={[styles.calendarDow, { fontSize: calDow }, isSelected && styles.calendarTextSelected]}>
                       {DAY_LABELS[dow]}
                     </Text>
-                    <Text style={[styles.calendarDate, isSelected && styles.calendarTextSelected]}>
+                    <Text style={[styles.calendarDate, { fontSize: calDate }, isSelected && styles.calendarTextSelected]}>
                       {formatMD(day.date)}
                     </Text>
                     <View style={[
                       styles.calendarDot,
+                      { minWidth: calDot, height: calDot * 0.7, borderRadius: calDot * 0.35 },
                       kind === 'full' && styles.dotFull,
                       kind === 'partial' && styles.dotPartial,
                       kind === 'missed' && styles.dotMissed,
                       kind === 'none' && styles.dotNone,
                     ]}>
-                      <Text style={styles.calendarDotText}>
+                      <Text style={[styles.calendarDotText, { fontSize: calDotText }]}>
                         {day.summary.taken_count}/{day.summary.prescribed_count || '-'}
                       </Text>
                     </View>

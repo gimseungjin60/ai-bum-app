@@ -29,12 +29,17 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const result = await login(email.trim(), password);
-      if (!result.success) {
-        Alert.alert('로그인 실패', result.message || '이메일 또는 비밀번호를 확인해주세요.');
-      }
+      await login(email.trim(), password);
+      // 성공 시 onAuthStateChanged → AuthContext가 자동으로 상태 갱신 + 화면 전환
     } catch (e) {
-      Alert.alert('연결 오류', '서버에 연결할 수 없습니다.\n네트워크 상태를 확인해주세요.');
+      const code = e?.code || '';
+      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        Alert.alert('로그인 실패', '이메일 또는 비밀번호를 확인해주세요.');
+      } else if (code === 'auth/too-many-requests') {
+        Alert.alert('로그인 실패', '너무 많은 시도입니다. 잠시 후 다시 시도해주세요.');
+      } else {
+        Alert.alert('연결 오류', '네트워크 상태를 확인해주세요.');
+      }
     } finally {
       setLoading(false);
     }

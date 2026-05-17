@@ -17,6 +17,7 @@ import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
 import { uploadPhotoWithNotification, togglePhotoDisplay } from '../services/photoService';
+import { useAuth } from '../contexts/AuthContext';
 
 const CARD_GAP = 12;
 const PHONE_MAX_WIDTH = 430;
@@ -52,14 +53,16 @@ function formatDate(timestamp) {
 }
 
 export default function GalleryScreen() {
+  const { user, activeSeniorId, activePairing } = useAuth();
   const [uploading, setUploading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const { width: rawWidth } = useWindowDimensions();
   const effectiveWidth = Platform.OS === 'web' ? Math.min(rawWidth, PHONE_MAX_WIDTH) : rawWidth;
   const cardWidth = (effectiveWidth - spacing.lg * 2 - CARD_GAP) / 2;
 
-  // Firestore에서 사진 목록 구독
-  const { data: firestorePhotos, loading } = useCollection('photos', 'createdAt', 50);
+  // 활성 시니어 디바이스의 사진만 구독 → 같은 시니어에 페어링한 가족이 모두 같은 풀을 봄
+  const deviceFilters = activeSeniorId ? [['deviceId', '==', activeSeniorId]] : [];
+  const { data: firestorePhotos, loading } = useCollection('photos', 'createdAt', 50, deviceFilters);
   const photos = firestorePhotos.length > 0 ? firestorePhotos : MOCK_PHOTOS;
 
   useEffect(() => {
@@ -78,42 +81,33 @@ export default function GalleryScreen() {
       return;
     }
 
-    // 사진 선택
+    // 사진 선택 — allowsEditing 끄면 자르기 화면 없이 바로 선택 완료
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.8,
     });
 
     if (result.canceled) return;
 
-    // 캡션 입력 (간단한 Alert prompt)
-    Alert.prompt
-      ? Alert.prompt(
-          '사진 설명',
-          '어르신께 보여줄 사진 설명을 입력하세요',
-          async (caption) => {
-            await doUpload(result.assets[0].uri, caption);
-          },
-          'plain-text',
-          '',
-          'default'
-        )
-      : await doUpload(result.assets[0].uri, '');
-  };
-
-  const doUpload = async (uri, caption) => {
+    // 미리보기 없이 바로 업로드
+    if (!activeSeniorId) {
+      Alert.alert('페어링 필요', '먼저 시니어 기기에 페어링해주세요.');
+      return;
+    }
     setUploading(true);
     try {
-      await uploadPhotoWithNotification(uri, {
-        uploaderName: '가족',
-        caption: caption || '소중한 순간',
+      await uploadPhotoWithNotification(result.assets[0].uri, {
+        uploaderName: user?.name || '가족',
+        uploaderUid: user?.uid || null,
+        deviceId: activeSeniorId,
+        caption: '소중한 순간',
         emoji: '😊',
       });
       Alert.alert('업로드 완료', '사진이 어르신의 스마트 프레임에 전송됩니다!');
     } catch (error) {
       console.error('Upload error:', error);
-      Alert.alert('업로드 실패', '다시 시도해주세요.');
+      Alert.alert('업로드 실패', error.message || '다시 시도해주세요.');
     } finally {
       setUploading(false);
     }

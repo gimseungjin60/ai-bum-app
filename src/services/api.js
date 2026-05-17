@@ -47,17 +47,30 @@ class ApiService {
     if (this.activeSeniorId) {
       headers['X-Device-Id'] = this.activeSeniorId;
     }
+    // 네트워크 hang 방지 — 8초 timeout. 백엔드 미연결/방화벽 차단 시 spinner 무한대 회피
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
     const config = {
       ...options,
       headers,
+      signal: options.signal || controller.signal,
     };
 
-    const response = await fetch(url, config);
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: '서버 오류' }));
-      throw new Error(error.detail || `HTTP ${response.status}`);
+    try {
+      const response = await fetch(url, config);
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: '서버 오류' }));
+        throw new Error(error.detail || `HTTP ${response.status}`);
+      }
+      return response.json();
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw new Error(`요청 시간 초과 (${url})`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
-    return response.json();
   }
 
   // 인증

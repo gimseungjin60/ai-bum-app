@@ -9,12 +9,15 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
 import Card from '../components/Card';
-import { api } from '../services/api';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { db } from '../config/firebase';
+import { useAuth } from '../contexts/AuthContext';
 import {
   EVENT_TYPES,
   getEventTypeMeta,
@@ -49,6 +52,10 @@ function buildWeek(centerDate = new Date()) {
 }
 
 export default function EventsScreen({ navigation }) {
+  const { activeSeniorId } = useAuth();
+  const { width: screenWidth } = useWindowDimensions();
+  const calDow = Math.max(10, Math.min(18, screenWidth * 0.026));
+  const calDate = Math.max(11, Math.min(20, screenWidth * 0.029));
   const [events, setEvents] = useState([]);
   const [medications, setMedications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,19 +83,15 @@ export default function EventsScreen({ navigation }) {
     return unsub;
   }, []);
 
-  // 처방 (캘린더에 같이 표시)
-  const loadMedications = useCallback(async () => {
-    try {
-      const result = await api.getMedications();
-      setMedications((result.medications || []).filter((m) => m.enabled !== false));
-    } catch {
-      setMedications([]);
-    }
-  }, []);
-
+  // Firestore에서 복약 목록 구독 (캘린더에 같이 표시)
   useEffect(() => {
-    loadMedications();
-  }, [loadMedications]);
+    if (!activeSeniorId) return;
+    const q = query(collection(db, 'medications', activeSeniorId, 'items'), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setMedications(snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((m) => m.enabled !== false));
+    }, () => setMedications([]));
+    return unsub;
+  }, [activeSeniorId]);
 
   const eventsByDate = {};
   events.forEach((e) => {
@@ -202,10 +205,10 @@ export default function EventsScreen({ navigation }) {
                     isToday && !isSelected && styles.calendarCellToday,
                   ]}
                 >
-                  <Text style={[styles.calendarDow, isSelected && styles.calendarTextSelected]}>
+                  <Text style={[styles.calendarDow, { fontSize: calDow }, isSelected && styles.calendarTextSelected]}>
                     {DAY_LABELS[dow]}
                   </Text>
-                  <Text style={[styles.calendarDate, isSelected && styles.calendarTextSelected]}>
+                  <Text style={[styles.calendarDate, { fontSize: calDate }, isSelected && styles.calendarTextSelected]}>
                     {formatMD(dateStr)}
                   </Text>
                   <View style={styles.dotRow}>
