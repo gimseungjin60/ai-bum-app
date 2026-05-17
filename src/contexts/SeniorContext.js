@@ -1,28 +1,39 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
-import { wsService } from '../services/websocket';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../config/firebase';
 import { api } from '../services/api';
 import { useAuth } from './AuthContext';
 
 const SeniorContext = createContext(null);
 
+function todayStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function SeniorProvider({ children }) {
   const { isPaired, activeSeniorId, pairedDevice } = useAuth();
-  // 다대다 지원: 활성 시니어 ID 우선, 없으면 legacy pairedDevice, 그래도 없으면 더미.
-  // 더미 'frame-001'은 페어링 전 화면 렌더 시 API 호출 실패만 막는 fallback.
-  const deviceId = activeSeniorId || pairedDevice?.deviceId || 'frame-001';
+  const deviceId = activeSeniorId || pairedDevice?.deviceId || null;
 
-  // WebSocket 실시간 상태
-  const [wsConnected, setWsConnected] = useState(false);
-  const [seniorStatus, setSeniorStatus] = useState('idle'); // idle, greeting, active
-  const [detected, setDetected] = useState(false);
-  const [isListening, setIsListening] = useState(false);
+  // Firestore 실시간 상태 (devices/{deviceId})
   const [isPillTaken, setIsPillTaken] = useState(false);
-  const [isEmergency, setIsEmergency] = useState(false);
-  const [lastMessage, setLastMessage] = useState('');
   const [reminder, setReminder] = useState(null);
+  const [lastSeenMs, setLastSeenMs] = useState(null);
+  const [seniorStatus, setSeniorStatus] = useState('idle');
+  const [nowTick, setNowTick] = useState(Date.now());
 
-  // REST API 데이터
+  // online 판정: heartbeat 주기(60s) + 약간의 여유
+  const wsConnected = lastSeenMs !== null && nowTick - lastSeenMs < 90_000;
+
+  // 미사용/추후 마이그레이션 대상
+  const [detected] = useState(false);
+  const [isListening] = useState(false);
+  const [isEmergency, setIsEmergency] = useState(false);
+  const [lastMessage] = useState('');
+
+  // REST API 데이터 (같은 네트워크 시 동작, 아니면 null 유지)
   const [summary, setSummary] = useState(null);
   const [dailyReport, setDailyReport] = useState(null);
   const [weeklyReport, setWeeklyReport] = useState(null);
@@ -31,68 +42,50 @@ export function SeniorProvider({ children }) {
 
   const appState = useRef(AppState.currentState);
 
+  // Firestore devices/{deviceId} onSnapshot → isPillTaken 실시간 추적
+  useEffect(() => {
+    if (!deviceId) return;
+
+    const docRef = doc(db, 'devices', deviceId);
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+      const lastPill = data.lastPillTakenAt;
+      if (lastPill) {
+        const ts = lastPill.toDate ? lastPill.toDate() : new Date(lastPill);
+        setIsPillTaken(ts >= todayStart());
+      } else {
+        setIsPillTaken(false);
+      }
+
+      const lastSeen = data.lastSeen;
+      if (lastSeen) {
+        const ts = lastSeen.toDate ? lastSeen.toDate() : new Date(lastSeen);
+        setLastSeenMs(ts.getTime());
+      }
+
+      if (data.currentStatus) setSeniorStatus(data.currentStatus);
+    }, () => {}); // 권한 없어도 조용히 실패
+
+    return unsub;
+  }, [deviceId]);
+
+  // wsConnected 판정용 시계 — 30초마다 강제 리렌더
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const fetchSummary = useCallback(async () => {
+    if (!deviceId) return;
     try {
       const result = await api.getSummary(deviceId);
       setSummary(result);
-    } catch {
-      // 조용히 실패
-    }
+    } catch {}
   }, [deviceId]);
 
-  // WebSocket 연결 관리
-  useEffect(() => {
-    if (!isPaired) return;
-
-    wsService.connect();
-    const unsub = wsService.subscribe(handleWsMessage);
-
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (appState.current.match(/inactive|background/) && nextState === 'active') {
-        wsService.connect();
-        fetchSummary();
-      }
-      appState.current = nextState;
-    });
-
-    return () => {
-      unsub();
-      sub.remove();
-      wsService.disconnect();
-    };
-  }, [isPaired, fetchSummary]);
-
-  function handleWsMessage(data) {
-    if (data.type === 'connection') {
-      setWsConnected(data.connected);
-      return;
-    }
-
-    // 상태 업데이트
-    if (data.status !== undefined) setSeniorStatus(data.status);
-    if (data.detected !== undefined) setDetected(data.detected);
-    if (data.message !== undefined) setLastMessage(data.message);
-    if (data.isListening !== undefined) setIsListening(data.isListening);
-    if (data.isPillTaken !== undefined) setIsPillTaken(data.isPillTaken);
-    if (data.isEmergency !== undefined) setIsEmergency(data.isEmergency);
-
-    // 리마인더
-    if (data.type === 'reminder') {
-      setReminder({
-        reminderType: data.reminderType,
-        title: data.title,
-        message: data.message,
-        time: data.time,
-      });
-    }
-
-    // 상태 변경 시 요약 갱신
-    if (data.status === 'active' || data.status === 'idle') {
-      fetchSummary();
-    }
-  }
-
   const fetchDailyReport = useCallback(async (date = '') => {
+    if (!deviceId) return;
     setLoadingReport(true);
     try {
       const result = await api.getDailyReport(deviceId, date);
@@ -105,6 +98,7 @@ export function SeniorProvider({ children }) {
   }, [deviceId]);
 
   const fetchWeeklyReport = useCallback(async () => {
+    if (!deviceId) return;
     setLoadingReport(true);
     try {
       const result = await api.getWeeklyReport(deviceId);
@@ -120,17 +114,24 @@ export function SeniorProvider({ children }) {
     try {
       const result = await api.getWeather();
       setWeather(result);
-    } catch {
-      // 조용히 실패
-    }
+    } catch {}
   }, []);
 
-  // 초기 데이터 로드
   useEffect(() => {
     if (!isPaired) return;
     fetchSummary();
     fetchWeather();
   }, [isPaired, fetchSummary, fetchWeather]);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        fetchSummary();
+      }
+      appState.current = nextState;
+    });
+    return () => sub.remove();
+  }, [fetchSummary]);
 
   const dismissReminder = useCallback(() => setReminder(null), []);
   const clearEmergency = useCallback(() => setIsEmergency(false), []);
@@ -138,7 +139,6 @@ export function SeniorProvider({ children }) {
   return (
     <SeniorContext.Provider
       value={{
-        // 실시간 상태
         wsConnected,
         seniorStatus,
         detected,
@@ -149,13 +149,11 @@ export function SeniorProvider({ children }) {
         reminder,
         dismissReminder,
         clearEmergency,
-        // 리포트 데이터
         summary,
         dailyReport,
         weeklyReport,
         weather,
         loadingReport,
-        // 데이터 fetch
         fetchSummary,
         fetchDailyReport,
         fetchWeeklyReport,
@@ -169,8 +167,6 @@ export function SeniorProvider({ children }) {
 
 export function useSenior() {
   const context = useContext(SeniorContext);
-  if (!context) {
-    throw new Error('useSenior must be used within a SeniorProvider');
-  }
+  if (!context) throw new Error('useSenior must be used within a SeniorProvider');
   return context;
 }
