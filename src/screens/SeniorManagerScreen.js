@@ -15,8 +15,9 @@ import {
 import Icon from '../components/Icon';
 import HapticButton from '../components/HapticButton';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../services/api';
+import { auth, functions } from '../config/firebase';
 
 const CODE_LENGTH = 6;
 
@@ -66,24 +67,21 @@ export default function SeniorManagerScreen({ navigation }) {
     }
     setAdding(true);
     try {
-      const result = await api.verifyPairingCode(codeStr, user.user_id, user.name, '');
-      if (result.success) {
-        // 같은 디바이스면 활성만 갱신, 새 디바이스면 추가
-        await addPairing({
-          deviceId: result.device_id,
-          familyId: result.family_id,
-          seniorName: '',
-          pairedAt: Date.now(),
-        });
-        await setActiveSenior(result.device_id);
+      const verify = httpsCallable(functions, 'verifyPairing');
+      const { data } = await verify({ code: codeStr });
+      if (data.success) {
+        await addPairing(data.deviceId);
+        await setActiveSenior(data.deviceId);
         setAddOpen(false);
         resetCode();
         Alert.alert('연결 완료', '시니어 디바이스가 추가되었습니다.');
-      } else {
-        Alert.alert('페어링 실패', result.message || '코드를 확인해주세요.');
       }
-    } catch {
-      Alert.alert('연결 오류', '서버에 연결할 수 없거나 잘못된 코드입니다.');
+    } catch (e) {
+      const msg = e?.message || '';
+      if (msg.includes('not-found')) Alert.alert('페어링 실패', '유효하지 않은 코드입니다.');
+      else if (msg.includes('already-exists')) Alert.alert('페어링 실패', '이미 사용된 코드입니다.');
+      else if (msg.includes('deadline-exceeded')) Alert.alert('페어링 실패', '만료된 코드입니다.');
+      else Alert.alert('연결 오류', '잠시 후 다시 시도해주세요.');
     } finally {
       setAdding(false);
     }
@@ -106,6 +104,17 @@ export default function SeniorManagerScreen({ navigation }) {
           )
         );
     if (!confirmed) return;
+
+    // Cloud Function 호출: Firestore의 페어링 레코드 제거
+    if (auth.currentUser) {
+      try {
+        const idToken = await auth.currentUser.getIdToken(true);
+        const unpair = httpsCallable(functions, 'unpairDevice');
+        await unpair({ deviceId, idToken });
+      } catch (e) {
+        console.warn('[unpair] Cloud Function 실패:', e?.code || e?.message);
+      }
+    }
     await removePairing(deviceId);
   }
 

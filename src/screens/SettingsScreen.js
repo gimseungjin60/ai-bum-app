@@ -14,12 +14,13 @@ import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
-import { api } from '../services/api';
+import { auth, functions } from '../config/firebase';
 import { useSenior } from '../contexts/SeniorContext';
 
 export default function SettingsScreen({ navigation }) {
-  const { user, pairedDevice, pairings, logout, clearPairing } = useAuth();
+  const { user, pairedDevice, activeSeniorId, pairings, logout, clearPairing } = useAuth();
   const { wsConnected, seniorStatus } = useSenior();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -53,9 +54,17 @@ export default function SettingsScreen({ navigation }) {
 
     if (!confirmed) return;
 
-    try {
-      await api.unpairDevice();
-    } catch { /* 기기가 오프라인이어도 로컬 해제는 진행 */ }
+    // Cloud Function 호출: users/{uid}.pairedDeviceIds 와 devices/{deviceId}.pairedUids 동시 정리
+    if (auth.currentUser && activeSeniorId) {
+      try {
+        const idToken = await auth.currentUser.getIdToken(true);
+        const unpair = httpsCallable(functions, 'unpairDevice');
+        await unpair({ deviceId: activeSeniorId, idToken });
+      } catch (e) {
+        // Cloud Function 실패해도 로컬 해제는 진행 (네트워크 단절 등)
+        console.warn('[unpair] Cloud Function 실패:', e?.code || e?.message);
+      }
+    }
     await clearPairing();
   }
 
