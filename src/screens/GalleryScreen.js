@@ -6,7 +6,8 @@ import {
   StyleSheet,
   Image,
   Animated,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
   Alert,
   ActivityIndicator,
 } from 'react-native';
@@ -15,11 +16,10 @@ import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
 import { useCollection } from '../hooks/useFirestore';
-import { uploadPhotoWithNotification } from '../services/photoService';
+import { uploadPhotoWithNotification, togglePhotoDisplay } from '../services/photoService';
 
-const { width } = Dimensions.get('window');
 const CARD_GAP = 12;
-const CARD_WIDTH = (width - spacing.lg * 2 - CARD_GAP) / 2;
+const PHONE_MAX_WIDTH = 430;
 
 const MOCK_PHOTOS = [
   {
@@ -54,6 +54,9 @@ function formatDate(timestamp) {
 export default function GalleryScreen() {
   const [uploading, setUploading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const { width: rawWidth } = useWindowDimensions();
+  const effectiveWidth = Platform.OS === 'web' ? Math.min(rawWidth, PHONE_MAX_WIDTH) : rawWidth;
+  const cardWidth = (effectiveWidth - spacing.lg * 2 - CARD_GAP) / 2;
 
   // Firestore에서 사진 목록 구독
   const { data: firestorePhotos, loading } = useCollection('photos', 'createdAt', 50);
@@ -156,39 +159,67 @@ export default function GalleryScreen() {
 
         {/* Photo Grid */}
         <View style={styles.grid}>
-          {photos.map((photo) => (
-            <HapticButton key={photo.id} style={styles.photoCard}>
-              <View style={styles.photoImageContainer}>
-                <Image
-                  source={{ uri: photo.uri }}
-                  style={styles.photoImage}
-                  resizeMode="cover"
-                />
-                {!!(photo.uploaderName || photo.uploader) && (
-                  <View style={styles.photoBadge}>
-                    <Text style={styles.photoBadgeText}>
-                      {photo.uploaderName || photo.uploader}
-                    </Text>
-                    <Text>{photo.emoji || '😊'}</Text>
-                  </View>
-                )}
-                {!!photo.isMemory && (
-                  <View style={styles.memoryBadge}>
-                    <Icon name="History" size={12} color={colors.white} />
-                    <Text style={styles.memoryBadgeText}>추억의 조각</Text>
-                  </View>
-                )}
+          {photos.map((photo) => {
+            // 신규 사진은 displayOnDevice=true, 옛 사진은 필드 없음 → 기본 true 취급
+            const isShown = photo.displayOnDevice !== false;
+            const isMock = String(photo.id || '').startsWith('mock');
+            return (
+              <View key={photo.id} style={[styles.photoCard, { width: cardWidth }]}>
+                <View style={[styles.photoImageContainer, !isShown && styles.photoImageHidden]}>
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={styles.photoImage}
+                    resizeMode="cover"
+                  />
+                  {!!(photo.uploaderName || photo.uploader) && (
+                    <View style={styles.photoBadge}>
+                      <Text style={styles.photoBadgeText}>
+                        {photo.uploaderName || photo.uploader}
+                      </Text>
+                      <Text>{photo.emoji || '😊'}</Text>
+                    </View>
+                  )}
+                  {!!photo.isMemory && (
+                    <View style={styles.memoryBadge}>
+                      <Icon name="History" size={12} color={colors.white} />
+                      <Text style={styles.memoryBadgeText}>추억의 조각</Text>
+                    </View>
+                  )}
+                  {!isShown && (
+                    <View style={styles.hiddenOverlay}>
+                      <Icon name="EyeOff" size={20} color={colors.white} />
+                      <Text style={styles.hiddenOverlayText}>디바이스 숨김</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.photoInfo}>
+                  <Text style={styles.photoDate}>
+                    {formatDate(photo.createdAt) || photo.date || ''}
+                  </Text>
+                  <Text style={styles.photoCaption} numberOfLines={2}>
+                    {photo.caption}
+                  </Text>
+                  {!isMock && (
+                    <HapticButton
+                      onPress={() => togglePhotoDisplay(photo.id, !isShown).catch(() => {
+                        Alert.alert('오류', '변경에 실패했습니다.');
+                      })}
+                      style={[styles.displayToggle, isShown ? styles.displayToggleOn : styles.displayToggleOff]}
+                    >
+                      <Icon
+                        name={isShown ? 'Eye' : 'EyeOff'}
+                        size={14}
+                        color={isShown ? colors.emerald700 : colors.stone500}
+                      />
+                      <Text style={[styles.displayToggleText, { color: isShown ? colors.emerald700 : colors.stone500 }]}>
+                        {isShown ? '디바이스 표시 중' : '디바이스 숨김'}
+                      </Text>
+                    </HapticButton>
+                  )}
+                </View>
               </View>
-              <View style={styles.photoInfo}>
-                <Text style={styles.photoDate}>
-                  {formatDate(photo.createdAt) || photo.date || ''}
-                </Text>
-                <Text style={styles.photoCaption} numberOfLines={2}>
-                  {photo.caption}
-                </Text>
-              </View>
-            </HapticButton>
-          ))}
+            );
+          })}
         </View>
 
         {photos.length === 0 && !loading && (
@@ -246,7 +277,6 @@ const styles = StyleSheet.create({
     gap: CARD_GAP,
   },
   photoCard: {
-    width: CARD_WIDTH,
     marginBottom: 8,
   },
   photoImageContainer: {
@@ -317,4 +347,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  photoImageHidden: { opacity: 0.45 },
+  hiddenOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 9999,
+  },
+  hiddenOverlayText: { color: colors.white, fontSize: fontSize.xs, fontWeight: '700' },
+  displayToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  displayToggleOn: {
+    backgroundColor: colors.emerald100,
+    borderColor: colors.emerald100,
+  },
+  displayToggleOff: {
+    backgroundColor: colors.surfaceContainer,
+    borderColor: colors.outlineVariant,
+  },
+  displayToggleText: { fontSize: fontSize.xs, fontWeight: '700' },
 });

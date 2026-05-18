@@ -5,7 +5,8 @@ import {
   StyleSheet,
   Modal,
   Animated,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
   Alert,
   Linking,
   Share,
@@ -15,12 +16,15 @@ import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
 
-const { width } = Dimensions.get('window');
+const PHONE_MAX_WIDTH = 430;
 
 export default function EmergencyModal({ visible, onClose }) {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const { width: rawWidth } = useWindowDimensions();
+  const effectiveWidth = Platform.OS === 'web' ? Math.min(rawWidth, PHONE_MAX_WIDTH) : rawWidth;
+  const cardWidth = effectiveWidth - 48;
 
   useEffect(() => {
     if (visible) {
@@ -78,7 +82,7 @@ export default function EmergencyModal({ visible, onClose }) {
         <Animated.View
           style={[
             styles.card,
-            { opacity: opacityAnim, transform: [{ scale: scaleAnim }] },
+            { width: cardWidth, opacity: opacityAnim, transform: [{ scale: scaleAnim }] },
           ]}
         >
           <HapticButton onPress={onClose} style={styles.closeBtn}>
@@ -138,7 +142,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   card: {
-    width: width - 48,
     maxWidth: 400,
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: borderRadius.xxl,

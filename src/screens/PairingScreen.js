@@ -20,7 +20,7 @@ import { api } from '../services/api';
 const CODE_LENGTH = 6;
 
 export default function PairingScreen() {
-  const { user, savePairing, logout } = useAuth();
+  const { user, savePairing, logout, pairingVerificationFailed } = useAuth();
   const [code, setCode] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const inputs = useRef([]);
@@ -96,6 +96,16 @@ export default function PairingScreen() {
         contentContainerStyle={styles.inner}
         keyboardShouldPersistTaps="handled"
       >
+        {/* 연결 실패 배너 */}
+        {!!pairingVerificationFailed && (
+          <View style={styles.warnBanner}>
+            <Icon name="WifiOff" size={16} color="#92400E" />
+            <Text style={styles.warnBannerText}>
+              시니어 기기와 연결할 수 없습니다. 기기 전원과 네트워크를 확인 후 PIN을 다시 입력해주세요.
+            </Text>
+          </View>
+        )}
+
         {/* 아이콘 */}
         <View style={styles.iconSection}>
           <View style={styles.iconCircle}>
@@ -278,5 +288,21 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: fontSize.md,
     color: colors.stone500,
+  },
+  warnBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    backgroundColor: '#FEF3C7',
+    borderRadius: borderRadius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  warnBannerText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: '#92400E',
+    lineHeight: 18,
   },
 });

@@ -7,8 +7,10 @@ import { useAuth } from './AuthContext';
 const SeniorContext = createContext(null);
 
 export function SeniorProvider({ children }) {
-  const { isPaired, pairedDevice } = useAuth();
-  const deviceId = pairedDevice?.deviceId || 'frame-001';
+  const { isPaired, activeSeniorId, pairedDevice } = useAuth();
+  // 다대다 지원: 활성 시니어 ID 우선, 없으면 legacy pairedDevice, 그래도 없으면 더미.
+  // 더미 'frame-001'은 페어링 전 화면 렌더 시 API 호출 실패만 막는 fallback.
+  const deviceId = activeSeniorId || pairedDevice?.deviceId || 'frame-001';
 
   // WebSocket 실시간 상태
   const [wsConnected, setWsConnected] = useState(false);

@@ -19,7 +19,7 @@ import { api } from '../services/api';
 import { useSenior } from '../contexts/SeniorContext';
 
 export default function SettingsScreen({ navigation }) {
-  const { user, pairedDevice, logout, clearPairing } = useAuth();
+  const { user, pairedDevice, pairings, logout, clearPairing } = useAuth();
   const { wsConnected, seniorStatus } = useSenior();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -135,6 +135,27 @@ export default function SettingsScreen({ navigation }) {
           <View style={{ flex: 1 }}>
             <Text style={styles.medicationTitle}>복약 관리</Text>
             <Text style={styles.medicationSub}>약 스케줄 추가/수정/삭제</Text>
+          </View>
+          <Icon name="ChevronRight" size={20} color={colors.stone400} />
+        </HapticButton>
+
+        {/* 시니어 관리 (다대다) */}
+        <HapticButton
+          onPress={() => navigation.navigate('SeniorManager')}
+          style={styles.seniorManagerCard}
+        >
+          <View style={styles.seniorManagerIcon}>
+            <Icon name="Tablet" size={22} color={colors.primaryDark} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.medicationTitle}>시니어 관리</Text>
+            <Text style={styles.medicationSub}>
+              {pairings.length === 0
+                ? '연결된 시니어가 없습니다'
+                : pairings.length === 1
+                ? '시니어 1명 연결됨 · 추가 페어링 가능'
+                : `시니어 ${pairings.length}명 연결됨 · 활성 시니어 변경`}
+            </Text>
           </View>
           <Icon name="ChevronRight" size={20} color={colors.stone400} />
         </HapticButton>
@@ -287,9 +308,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryFixed,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.sm,
   },
   medicationIcon: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  seniorManagerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.secondaryContainer,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  seniorManagerIcon: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.6)',
     alignItems: 'center', justifyContent: 'center',

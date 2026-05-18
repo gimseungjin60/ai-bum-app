@@ -18,6 +18,30 @@ import Card from '../components/Card';
 import { api } from '../services/api';
 import { useSenior } from '../contexts/SeniorContext';
 
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function formatMD(dateStr) {
+  const d = new Date(dateStr);
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
+function getStatusKind(day) {
+  const p = day?.summary?.prescribed_count || 0;
+  const t = day?.summary?.taken_count || 0;
+  if (p === 0) return 'none';
+  if (t === 0) return 'missed';
+  if (t >= p) return 'full';
+  return 'partial';
+}
+
 export default function MedicationScreen({ navigation }) {
   const { isPillTaken } = useSenior();
   const [medications, setMedications] = useState([]);
@@ -27,12 +51,17 @@ export default function MedicationScreen({ navigation }) {
   const [newTime, setNewTime] = useState('09:00');
   const [newDosage, setNewDosage] = useState('');
   const [newNotes, setNewNotes] = useState('');
+  const [newStock, setNewStock] = useState('');
   const [saving, setSaving] = useState(false);
+  const [calendarDays, setCalendarDays] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [stockAlerts, setStockAlerts] = useState([]);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
     loadMedications();
+    loadCalendar();
   }, []);
 
   const loadMedications = useCallback(async () => {
@@ -46,6 +75,23 @@ export default function MedicationScreen({ navigation }) {
     }
   }, []);
 
+  const loadCalendar = useCallback(async () => {
+    try {
+      const result = await api.getMedicationCalendar();
+      const days = result?.days || [];
+      setCalendarDays(days);
+      setStockAlerts(result?.stock_alerts || []);
+      if (days.length && !selectedDate) {
+        setSelectedDate(days[days.length - 1].date);
+      }
+    } catch {
+      setCalendarDays([]);
+      setStockAlerts([]);
+    }
+  }, [selectedDate]);
+
+  const selectedDay = calendarDays.find((d) => d.date === selectedDate);
+
   async function handleAdd() {
     if (!newName.trim()) {
       Alert.alert('입력 오류', '약 이름을 입력해주세요.');
@@ -58,6 +104,7 @@ export default function MedicationScreen({ navigation }) {
         time: newTime.trim(),
         dosage: newDosage.trim(),
         notes: newNotes.trim(),
+        stock: Number(newStock) || 0,
       });
       if (result.success) {
         setMedications((prev) => [...prev, result.medication]);
@@ -65,7 +112,9 @@ export default function MedicationScreen({ navigation }) {
         setNewTime('09:00');
         setNewDosage('');
         setNewNotes('');
+        setNewStock('');
         setShowAdd(false);
+        loadCalendar();
       }
     } catch {
       Alert.alert('오류', '약 추가에 실패했습니다.');
@@ -102,8 +151,14 @@ export default function MedicationScreen({ navigation }) {
     try {
       await api.deleteMedication(med.id);
       setMedications((prev) => prev.filter((m) => m.id !== med.id));
+      loadCalendar();
     } catch {}
   }
+
+  // 시니어가 음성으로 약을 복용하면 isPillTaken이 즉시 true가 됨 → 캘린더 새로고침
+  useEffect(() => {
+    if (isPillTaken) loadCalendar();
+  }, [isPillTaken, loadCalendar]);
 
   return (
     <View style={styles.container}>
@@ -118,6 +173,34 @@ export default function MedicationScreen({ navigation }) {
             <Icon name="Plus" size={24} color={colors.gradientStart} />
           </HapticButton>
         </View>
+
+        {/* 잔량 부족 경고 */}
+        {stockAlerts.length > 0 && (
+          <View style={styles.stockBannerWrap}>
+            {stockAlerts.map((a) => (
+              <View
+                key={a.name}
+                style={[
+                  styles.stockBanner,
+                  a.level === 'out' && styles.stockBannerOut,
+                  a.level === 'critical' && styles.stockBannerCritical,
+                  a.level === 'warning' && styles.stockBannerWarning,
+                ]}
+              >
+                <Icon
+                  name={a.level === 'out' ? 'AlertTriangle' : 'Bell'}
+                  size={18}
+                  color={a.level === 'warning' ? '#92400E' : colors.error}
+                />
+                <Text style={styles.stockBannerText}>
+                  {a.level === 'out'
+                    ? `${a.name} 재고 없음 — 처방 받으세요`
+                    : `${a.name} 잔량 ${a.days_left}일분 (${a.stock}정) — 처방 받으세요`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* 오늘 복약 상태 */}
         <View style={[styles.statusCard, isPillTaken ? styles.statusTaken : styles.statusPending]}>
@@ -139,6 +222,91 @@ export default function MedicationScreen({ navigation }) {
             </Text>
           </View>
         </View>
+
+        {/* 주간 복약 캘린더 */}
+        {calendarDays.length > 0 && (
+          <View style={styles.calendarSection}>
+            <Text style={styles.calendarTitle}>이번 주 복약 현황</Text>
+            <View style={styles.calendarGrid}>
+              {calendarDays.map((day) => {
+                const kind = getStatusKind(day);
+                const isSelected = day.date === selectedDate;
+                const isToday = day.date === todayISO();
+                const dow = new Date(day.date).getDay();
+                return (
+                  <HapticButton
+                    key={day.date}
+                    onPress={() => setSelectedDate(day.date)}
+                    style={[
+                      styles.calendarCell,
+                      isToday && !isSelected && styles.calendarCellToday,
+                      isSelected && styles.calendarCellSelected,
+                    ]}
+                  >
+                    <Text style={[styles.calendarDow, isSelected && styles.calendarTextSelected]}>
+                      {DAY_LABELS[dow]}
+                    </Text>
+                    <Text style={[styles.calendarDate, isSelected && styles.calendarTextSelected]}>
+                      {formatMD(day.date)}
+                    </Text>
+                    <View style={[
+                      styles.calendarDot,
+                      kind === 'full' && styles.dotFull,
+                      kind === 'partial' && styles.dotPartial,
+                      kind === 'missed' && styles.dotMissed,
+                      kind === 'none' && styles.dotNone,
+                    ]}>
+                      <Text style={styles.calendarDotText}>
+                        {day.summary.taken_count}/{day.summary.prescribed_count || '-'}
+                      </Text>
+                    </View>
+                  </HapticButton>
+                );
+              })}
+            </View>
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}><View style={[styles.legendDot, styles.dotFull]} /><Text style={styles.legendText}>완전</Text></View>
+              <View style={styles.legendItem}><View style={[styles.legendDot, styles.dotPartial]} /><Text style={styles.legendText}>일부</Text></View>
+              <View style={styles.legendItem}><View style={[styles.legendDot, styles.dotMissed]} /><Text style={styles.legendText}>미복용</Text></View>
+            </View>
+
+            {selectedDay && (
+              <View style={styles.daySummary}>
+                <Text style={styles.daySummaryTitle}>{formatMD(selectedDay.date)} 상세</Text>
+                {(selectedDay.prescribed || []).length === 0 ? (
+                  <Text style={styles.daySummaryEmpty}>처방된 약이 없습니다</Text>
+                ) : (
+                  selectedDay.prescribed.map((p) => {
+                    const taken = (selectedDay.taken || []).find((t) => t.med_id === p.med_id);
+                    const missed = (selectedDay.missed || []).some((m) => m.med_id === p.med_id);
+                    return (
+                      <View key={p.med_id} style={styles.daySummaryRow}>
+                        <Text style={styles.daySummaryTime}>{p.time}</Text>
+                        <Text style={styles.daySummaryName}>{p.name}</Text>
+                        {taken ? (
+                          <View style={styles.badgeTaken}>
+                            <Icon name="ShieldCheck" size={12} color={colors.emerald700} />
+                            <Text style={styles.badgeTakenText}>
+                              {(taken.taken_at || '').slice(11, 16) || '복용'}
+                            </Text>
+                          </View>
+                        ) : missed ? (
+                          <View style={styles.badgeMissed}>
+                            <Text style={styles.badgeMissedText}>미복용</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.badgePending}>
+                            <Text style={styles.badgePendingText}>대기</Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* 약 추가 폼 */}
         {showAdd && (
@@ -184,6 +352,17 @@ export default function MedicationScreen({ navigation }) {
                 onChangeText={setNewNotes}
               />
             </View>
+            <View style={styles.formRow}>
+              <Text style={styles.formLabel}>잔량 (알약 개수)</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="예: 30"
+                placeholderTextColor={colors.stone400}
+                value={newStock}
+                onChangeText={setNewStock}
+                keyboardType="number-pad"
+              />
+            </View>
             <View style={styles.formActions}>
               <HapticButton onPress={() => setShowAdd(false)} style={styles.formCancelBtn}>
                 <Text style={styles.formCancelText}>취소</Text>
@@ -225,6 +404,17 @@ export default function MedicationScreen({ navigation }) {
                     <Text style={styles.medName}>{med.name}</Text>
                     {med.dosage ? <Text style={styles.medDosage}>{med.dosage}</Text> : null}
                     {med.notes ? <Text style={styles.medNotes}>{med.notes}</Text> : null}
+                    {typeof med.stock === 'number' && (
+                      <Text
+                        style={[
+                          styles.medStock,
+                          med.stock <= 0 && { color: colors.error },
+                          med.stock > 0 && med.stock <= 7 && { color: '#92400E' },
+                        ]}
+                      >
+                        잔량 {med.stock}정
+                      </Text>
+                    )}
                   </View>
                   <Switch
                     value={med.enabled}
@@ -346,4 +536,120 @@ const styles = StyleSheet.create({
   medActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: spacing.sm },
   medDeleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 4 },
   medDeleteText: { fontSize: fontSize.sm, color: colors.error },
+
+  calendarSection: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+  },
+  calendarTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.onSurface,
+    marginBottom: spacing.sm,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+  },
+  calendarCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: 'transparent',
+  },
+  calendarCellSelected: {
+    backgroundColor: colors.primaryFixed,
+  },
+  calendarCellToday: {
+    borderWidth: 1,
+    borderColor: colors.gradientStart,
+  },
+  calendarDow: { fontSize: 10, color: colors.stone500, marginBottom: 2 },
+  calendarDate: { fontSize: 11, fontWeight: fontWeight.semibold, color: colors.onSurface, marginBottom: 4 },
+  calendarTextSelected: { color: colors.primaryDark },
+  calendarDot: {
+    minWidth: 32,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDotText: { fontSize: 10, fontWeight: fontWeight.bold, color: '#fff' },
+  dotFull: { backgroundColor: colors.emerald700 },
+  dotPartial: { backgroundColor: '#F59E0B' },
+  dotMissed: { backgroundColor: colors.error },
+  dotNone: { backgroundColor: colors.stone400 },
+
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 14, marginTop: spacing.sm },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: fontSize.xs, color: colors.stone500 },
+
+  daySummary: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.outlineVariant,
+  },
+  daySummaryTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+    color: colors.stone500,
+    marginBottom: spacing.sm,
+  },
+  daySummaryEmpty: { fontSize: fontSize.sm, color: colors.stone400, textAlign: 'center', paddingVertical: spacing.sm },
+  daySummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 6,
+  },
+  daySummaryTime: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+    color: colors.primaryDark,
+    width: 48,
+  },
+  daySummaryName: { flex: 1, fontSize: fontSize.sm, color: colors.onSurface },
+  badgeTaken: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10, backgroundColor: colors.emerald100,
+  },
+  badgeTakenText: { fontSize: fontSize.xs, color: colors.emerald700, fontWeight: fontWeight.semibold },
+  badgeMissed: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10, backgroundColor: '#FEE2E2',
+  },
+  badgeMissedText: { fontSize: fontSize.xs, color: colors.error, fontWeight: fontWeight.semibold },
+  badgePending: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 10, backgroundColor: colors.surfaceContainer,
+  },
+  badgePendingText: { fontSize: fontSize.xs, color: colors.stone500, fontWeight: fontWeight.semibold },
+
+  stockBannerWrap: { paddingHorizontal: spacing.lg, marginBottom: spacing.sm, gap: 6 },
+  stockBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    borderRadius: borderRadius.sm,
+  },
+  stockBannerOut: { backgroundColor: '#FEE2E2' },
+  stockBannerCritical: { backgroundColor: '#FEE2E2' },
+  stockBannerWarning: { backgroundColor: '#FEF3C7' },
+  stockBannerText: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.onSurface },
+
+  medStock: { fontSize: fontSize.sm, color: colors.stone500, marginTop: 2 },
 });

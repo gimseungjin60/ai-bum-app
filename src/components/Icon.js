@@ -24,6 +24,7 @@ const ICON_MAP = {
   Calendar: { lib: 'feather', name: 'calendar' },
   Smile: { lib: 'feather', name: 'smile' },
   Eye: { lib: 'feather', name: 'eye' },
+  EyeOff: { lib: 'feather', name: 'eye-off' },
   Footprints: { lib: 'material', name: 'walk' },
 
   // Gallery
