@@ -1,7 +1,8 @@
+import { Platform } from 'react-native';
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,9 +19,10 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 // React Native용 Auth — AsyncStorage persistence 명시 필수 (없으면 매번 로그아웃됨)
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// 웹: getReactNativePersistence가 firebase v12 웹 번들에 없으므로 기본 getAuth 사용
+export const auth = Platform.OS === 'web'
+  ? getAuth(app)
+  : initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);
