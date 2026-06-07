@@ -14,18 +14,10 @@ import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
 import { useSenior } from '../contexts/SeniorContext';
 import { useAuth } from '../contexts/AuthContext';
-import { auth, db, functions } from '../config/firebase';
-import { httpsCallable } from 'firebase/functions';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import {
-  LiveKitRoom,
-  VideoTrack,
-  useTracks,
-  registerGlobals,
-} from '@livekit/react-native';
-import { Track, Room } from 'livekit-client';
-
-registerGlobals();
+// LiveStream: 네이티브는 LiveStream.js(LiveKit), 웹은 LiveStream.web.js(스텁)
+// — Metro가 플랫폼별로 자동 선택. @livekit/react-native를 여기서 직접 import하면
+//   웹 번들이 requireNativeComponent에서 깨지므로 분리함.
+import LiveStream from '../components/LiveStream';
 
 const STATUS_LABEL = {
   idle: '대기 중',
@@ -78,103 +70,6 @@ const sectionStyles = StyleSheet.create({
   sub: { fontSize: fontSize.xs, color: colors.stone400, marginTop: 2 },
   action: { fontSize: fontSize.sm, fontWeight: '700', color: colors.gradientStart },
 });
-
-function SeniorVideoView() {
-  const tracks = useTracks([Track.Source.Camera]);
-  const seniorTrack = tracks.find((t) => t.participant?.identity === 'senior');
-  if (!seniorTrack) {
-    return (
-      <View style={styles.liveStreamPlaceholder}>
-        <Text style={styles.livePlaceholderText}>영상 대기 중...</Text>
-      </View>
-    );
-  }
-  return <VideoTrack trackRef={seniorTrack} style={styles.liveStream} />;
-}
-
-function LiveStream({ deviceId, onClose }) {
-  const [token, setToken] = useState(null);
-  const [url, setUrl] = useState(null);
-  const [error, setError] = useState(null);
-  // Room 인스턴스를 직접 만들어 lifecycle 제어. unmount 시 보장된 disconnect.
-  const [room] = useState(() => new Room());
-
-  useEffect(() => {
-    let mounted = true;
-    const deviceRef = doc(db, 'devices', deviceId);
-
-    (async () => {
-      try {
-        if (!auth.currentUser) throw new Error('로그인 필요');
-        // 시니어 publisher 깨우기 (on-demand) — 백엔드가 onSnapshot으로 받아 LiveKit room connect 시작
-        updateDoc(deviceRef, {
-          cameraRequested: true,
-          cameraRequestedAt: serverTimestamp(),
-        }).catch((e) => console.warn('[live] camera request 실패:', e?.code));
-
-        const idToken = await auth.currentUser.getIdToken(true);
-        const get = httpsCallable(functions, 'getLiveKitToken');
-        const { data } = await get({ deviceId, idToken });
-        if (mounted) {
-          setToken(data.token);
-          setUrl(data.url);
-        }
-      } catch (e) {
-        if (mounted) setError(e?.code || e?.message || String(e));
-      }
-    })();
-    return () => {
-      mounted = false;
-      // 보호자 측 leave
-      room.disconnect().catch(() => {});
-      // 시니어 publisher 끄기 신호 → 시니어 백엔드가 room disconnect → empty_timeout 후 inactive
-      updateDoc(deviceRef, { cameraRequested: false }).catch(() => {});
-    };
-  }, [deviceId, room]);
-
-  if (error) {
-    return (
-      <View style={styles.liveStreamWrap}>
-        <View style={styles.liveStreamPlaceholder}>
-          <Text style={styles.livePlaceholderText}>연결 실패: {error}</Text>
-        </View>
-        <HapticButton onPress={onClose} style={styles.liveCloseBtn}>
-          <Icon name="X" size={14} color="#fff" />
-        </HapticButton>
-      </View>
-    );
-  }
-  if (!token || !url) {
-    return (
-      <View style={styles.liveStreamWrap}>
-        <View style={styles.liveStreamPlaceholder}>
-          <Text style={styles.livePlaceholderText}>연결 중...</Text>
-        </View>
-        <HapticButton onPress={onClose} style={styles.liveCloseBtn}>
-          <Icon name="X" size={14} color="#fff" />
-        </HapticButton>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.liveStreamWrap}>
-      <LiveKitRoom
-        serverUrl={url}
-        token={token}
-        connect={true}
-        audio={false}
-        video={false}
-        room={room}
-      >
-        <SeniorVideoView />
-      </LiveKitRoom>
-      <HapticButton onPress={onClose} style={styles.liveCloseBtn}>
-        <Icon name="X" size={14} color="#fff" />
-      </HapticButton>
-    </View>
-  );
-}
 
 export default function HomeScreen({ navigation }) {
   const {

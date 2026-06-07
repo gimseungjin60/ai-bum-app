@@ -115,7 +115,7 @@ export default function SignupScreen({ navigation }) {
             <Icon name="Lock" size={20} color={colors.stone400} />
             <TextInput
               style={styles.input}
-              placeholder="4자 이상"
+              placeholder="6자 이상"
               placeholderTextColor={colors.stone400}
               value={password}
               onChangeText={setPassword}
