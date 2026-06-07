@@ -46,7 +46,7 @@ export function AuthProvider({ children }) {
       const storedActive = await AsyncStorage.getItem(ACTIVE_SENIOR_KEY).catch(() => null);
       if (storedActive) setActiveSeniorIdState(storedActive);
 
-      setLoading(false);
+      // loading 종료는 pairings 첫 스냅샷 이후 (페어링 판정 전에 핀 화면이 깜빡이는 것 방지)
     });
 
     return unsubscribeAuth;
@@ -57,28 +57,37 @@ export function AuthProvider({ children }) {
     if (!user?.uid) return;
 
     const userRef = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-      const rawPairings = data.pairings || [];
-      // 형식 정규화: Cloud Function은 { deviceId, pairedAt }, 구 백엔드는 { device_id, ... }
-      const normalized = rawPairings
-        .map((p) => ({
-          deviceId: p.deviceId || p.device_id,
-          pairedAt: p.pairedAt || p.paired_at || null,
-        }))
-        .filter((p) => p.deviceId);
-      setPairings(normalized);
+    const unsubscribe = onSnapshot(
+      userRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          const rawPairings = data.pairings || [];
+          // 형식 정규화: Cloud Function은 { deviceId, pairedAt }, 구 백엔드는 { device_id, ... }
+          const normalized = rawPairings
+            .map((p) => ({
+              deviceId: p.deviceId || p.device_id,
+              pairedAt: p.pairedAt || p.paired_at || null,
+            }))
+            .filter((p) => p.deviceId);
+          setPairings(normalized);
 
-      // 활성 시니어가 없거나 페어링 목록에 없으면 첫 항목으로 자동 설정
-      setActiveSeniorIdState((prev) => {
-        if (normalized.length === 0) return null;
-        if (prev && normalized.some((p) => p.deviceId === prev)) return prev;
-        const first = normalized[0].deviceId;
-        AsyncStorage.setItem(ACTIVE_SENIOR_KEY, first).catch(() => {});
-        return first;
-      });
-    });
+          // 활성 시니어가 없거나 페어링 목록에 없으면 첫 항목으로 자동 설정
+          setActiveSeniorIdState((prev) => {
+            if (normalized.length === 0) return null;
+            if (prev && normalized.some((p) => p.deviceId === prev)) return prev;
+            const first = normalized[0].deviceId;
+            AsyncStorage.setItem(ACTIVE_SENIOR_KEY, first).catch(() => {});
+            return first;
+          });
+        } else {
+          setPairings([]);
+        }
+        // 페어링 정보가 확정된 뒤에야 로딩 종료 → Pairing/Main 분기가 정확해짐
+        setLoading(false);
+      },
+      () => setLoading(false), // 구독 에러 시에도 무한 로딩 방지
+    );
 
     return unsubscribe;
   }, [user?.uid]);

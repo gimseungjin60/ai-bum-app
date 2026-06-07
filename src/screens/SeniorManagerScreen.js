@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import Icon from '../components/Icon';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
@@ -140,11 +141,7 @@ export default function SeniorManagerScreen({ navigation }) {
         </Text>
       </View>
 
-      <ScrollView
-        style={styles.list}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <Screen contentStyle={{ paddingTop: 0 }}>
         {pairings.length === 0 ? (
           <View style={styles.empty}>
             <Icon name="Tablet" size={48} color={colors.stone400} />
@@ -179,7 +176,7 @@ export default function SeniorManagerScreen({ navigation }) {
             );
           })
         )}
-      </ScrollView>
+      </Screen>
 
       {/* 추가 모달 */}
       <Modal

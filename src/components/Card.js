@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { colors, borderRadius } from '../theme';
+import { colors, borderRadius, spacing, shadow } from '../theme';
 
 export default function Card({ children, style, variant = 'default', ...props }) {
   const bgColor =
@@ -22,11 +22,7 @@ export default function Card({ children, style, variant = 'default', ...props })
 const styles = StyleSheet.create({
   card: {
     borderRadius: borderRadius.xxl,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    padding: spacing.lg,
+    ...shadow.md,
   },
 });

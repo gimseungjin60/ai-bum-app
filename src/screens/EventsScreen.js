@@ -15,6 +15,7 @@ import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
 import Card from '../components/Card';
+import Screen from '../components/Screen';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
@@ -320,7 +321,7 @@ export default function EventsScreen({ navigation }) {
         )}
 
         {/* 일자별 상세 */}
-        <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+        <Screen contentStyle={{ paddingTop: 0 }}>
           <Text style={styles.dayTitle}>{formatMD(selectedDate)} 일정</Text>
           {loading ? (
             <ActivityIndicator color={colors.gradientStart} style={{ marginTop: 30 }} />
@@ -357,7 +358,7 @@ export default function EventsScreen({ navigation }) {
               );
             })
           )}
-        </ScrollView>
+        </Screen>
       </Animated.View>
     </View>
   );

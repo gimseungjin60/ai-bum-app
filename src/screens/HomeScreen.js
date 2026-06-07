@@ -8,10 +8,12 @@ import {
   RefreshControl,
 } from 'react-native';
 import Icon from '../components/Icon';
-import { colors, spacing, borderRadius, fontSize } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, spacing, borderRadius, fontSize, fontWeight, shadow } from '../theme';
 import { EMOTION_META, sortedEmotions } from '../theme/emotions';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { useSenior } from '../contexts/SeniorContext';
 import { useAuth } from '../contexts/AuthContext';
 // LiveStream: 네이티브는 LiveStream.js(LiveKit), 웹은 LiveStream.web.js(스텁)
@@ -147,35 +149,33 @@ export default function HomeScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gradientStart} />
-      }
-    >
+    <Screen tabBarPad refreshing={refreshing} onRefresh={onRefresh}>
       <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
 
         {/* ─── 오프라인 배너 ─── */}
         {!wsConnected && (
           <View style={styles.offlineBanner}>
-            <Icon name="WifiOff" size={14} color="#92400E" />
+            <Icon name="WifiOff" size={14} color={colors.secondary} />
             <Text style={styles.offlineText}>기기에 연결하는 중...</Text>
           </View>
         )}
 
-        {/* ─── 히어로 카드 ─── */}
-        <View style={styles.heroCard}>
+        {/* ─── 히어로 카드 (오렌지 그라데이션) ─── */}
+        <LinearGradient
+          colors={[colors.gradientStart, colors.gradientEnd]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
           {/* 상단: 이름 + 상태 */}
           <View style={styles.heroTop}>
             <View style={styles.heroLeft}>
               <Text style={styles.heroLabel}>어르신 현황</Text>
               <Text style={styles.heroName}>시니어 스마트 프레임</Text>
             </View>
-            <View style={[styles.statusPill, { borderColor: currentStatusColor }]}>
-              <View style={[styles.statusDot, { backgroundColor: currentStatusColor }]} />
-              <Text style={[styles.statusText, { color: currentStatusColor }]}>
+            <View style={styles.statusPill}>
+              <View style={[styles.statusDot, { backgroundColor: wsConnected ? colors.green500 : colors.stone400 }]} />
+              <Text style={styles.statusText}>
                 {wsConnected ? currentStatusLabel : '오프라인'}
               </Text>
             </View>
@@ -195,7 +195,7 @@ export default function HomeScreen({ navigation }) {
               <View />
             )}
             <View style={styles.heroMetaItem}>
-              <Icon name="Clock" size={13} color={colors.stone400} />
+              <Icon name="Clock" size={13} color="rgba(255,255,255,0.85)" />
               <Text style={styles.heroMetaText}>{lastSeenText}</Text>
             </View>
           </View>
@@ -206,10 +206,10 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate('Notifications')}
             style={styles.heroCta}
           >
-            <Icon name="Bell" size={16} color={colors.onPrimary} />
+            <Icon name="Bell" size={16} color={colors.gradientStart} />
             <Text style={styles.heroCtaText}>알림 및 안부 확인</Text>
           </HapticButton>
-        </View>
+        </LinearGradient>
 
         {/* ─── 카메라 라이브 뷰 ─── */}
         {wsConnected && (
@@ -316,15 +316,15 @@ export default function HomeScreen({ navigation }) {
           onPress={() => navigation.navigate('Medication')}
           style={[styles.pillCard, isPillTaken ? styles.pillTaken : styles.pillPending]}
         >
-          <View style={[styles.pillIconWrap, { backgroundColor: isPillTaken ? '#A7F3D0' : '#FDE68A' }]}>
+          <View style={[styles.pillIconWrap, { backgroundColor: isPillTaken ? colors.emerald100 : colors.tertiaryFixed }]}>
             <Icon
               name={isPillTaken ? 'ShieldCheck' : 'Pill'}
               size={20}
-              color={isPillTaken ? colors.emerald700 : '#92400E'}
+              color={isPillTaken ? colors.emerald700 : colors.secondary}
             />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.pillTitle, { color: isPillTaken ? colors.emerald700 : '#92400E' }]}>
+            <Text style={[styles.pillTitle, { color: isPillTaken ? colors.emerald700 : colors.secondary }]}>
               {isPillTaken ? '오늘 복약 완료' : '복약 확인이 필요해요'}
             </Text>
             <Text style={styles.pillSub}>
@@ -372,21 +372,21 @@ export default function HomeScreen({ navigation }) {
         <SectionHeader title="빠른 메뉴" />
         <View style={styles.actionGrid}>
           <HapticButton style={styles.actionCard} onPress={() => navigation.navigate('Gallery')}>
-            <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+            <View style={styles.actionIcon}>
               <Icon name="ImagePlus" size={22} color={colors.gradientStart} />
             </View>
             <Text style={styles.actionTitle}>사진 올리기</Text>
             <Text style={styles.actionSub}>앨범에 새 사진 추가</Text>
           </HapticButton>
           <HapticButton style={styles.actionCard} onPress={() => navigation.navigate('Report')}>
-            <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+            <View style={styles.actionIcon}>
               <Icon name="BarChart3" size={22} color={colors.gradientStart} />
             </View>
             <Text style={styles.actionTitle}>리포트</Text>
             <Text style={styles.actionSub}>감정·활동 분석</Text>
           </HapticButton>
           <HapticButton style={styles.actionCard} onPress={() => navigation.navigate('Events')}>
-            <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+            <View style={styles.actionIcon}>
               <Icon name="Calendar" size={22} color={colors.gradientStart} />
             </View>
             <Text style={styles.actionTitle}>일정</Text>
@@ -395,7 +395,7 @@ export default function HomeScreen({ navigation }) {
         </View>
 
       </Animated.View>
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -406,51 +406,52 @@ const styles = StyleSheet.create({
   // ── 오프라인 배너
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#FEF3C7', borderRadius: borderRadius.sm,
+    backgroundColor: colors.secondaryFixed, borderRadius: borderRadius.md,
     paddingHorizontal: 14, paddingVertical: 10, marginBottom: spacing.md,
   },
-  offlineText: { fontSize: fontSize.sm, fontWeight: '600', color: '#92400E' },
+  offlineText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.secondary },
 
-  // ── 히어로 카드
+  // ── 히어로 카드 (오렌지 그라데이션)
   heroCard: {
-    backgroundColor: colors.secondaryContainer,
     borderRadius: borderRadius.xxl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
+    ...shadow.md,
   },
   heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  heroLeft: { gap: 2 },
-  heroLabel: { fontSize: fontSize.xs, fontWeight: '600', color: colors.onSecondaryContainer, opacity: 0.7 },
-  heroName: { fontSize: fontSize.xl, fontWeight: '800', color: colors.onSurface },
+  heroLeft: { gap: 4, flex: 1 },
+  heroLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: 'rgba(255,255,255,0.85)' },
+  heroName: { fontSize: 26, fontWeight: '800', color: colors.white, letterSpacing: -0.5 },
   statusPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1.5, borderRadius: 9999,
-    paddingHorizontal: 10, paddingVertical: 4,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 9999, paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
   statusDot: { width: 7, height: 7, borderRadius: 999 },
-  statusText: { fontSize: fontSize.xs, fontWeight: '700' },
-  heroDivider: { height: 1, backgroundColor: 'rgba(0,0,0,0.06)', marginVertical: spacing.md },
+  statusText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, color: colors.white },
+  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.22)', marginVertical: spacing.md },
   heroMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   heroMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   heroMetaIcon: { fontSize: 15 },
-  heroMetaText: { fontSize: fontSize.sm, color: colors.stone500, fontWeight: '500' },
+  heroMetaText: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.9)', fontWeight: fontWeight.medium },
   heroCta: {
-    marginTop: spacing.md,
-    backgroundColor: colors.primaryDark,
+    marginTop: spacing.lg,
+    backgroundColor: colors.white,
     borderRadius: borderRadius.lg,
-    paddingVertical: 12,
+    paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    ...shadow.sm,
   },
-  heroCtaText: { fontSize: fontSize.md, fontWeight: '700', color: '#fff' },
+  heroCtaText: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.gradientStart },
 
   // ── 라이브 카메라
   liveSection: { marginBottom: spacing.lg },
   liveToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: colors.surfaceContainerLow,
+    backgroundColor: colors.surfaceContainerLowest,
     borderRadius: borderRadius.xl,
     padding: spacing.md,
+    ...shadow.sm,
   },
   liveToggleOpen: {
     backgroundColor: colors.onSurface,
@@ -510,9 +511,9 @@ const styles = StyleSheet.create({
   liveOverlayDot: { width: 6, height: 6, borderRadius: 999, backgroundColor: '#EF4444' },
   liveOverlayText: { fontSize: fontSize.xs, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
   liveCloseBtn: {
-    position: 'absolute', bottom: 10, right: 12,
+    position: 'absolute', bottom: 12, right: 12,
     backgroundColor: 'rgba(0,0,0,0.55)',
-    width: 28, height: 28, borderRadius: 14,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
 
@@ -547,16 +548,17 @@ const styles = StyleSheet.create({
   // ── 복약 카드
   pillCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    borderRadius: borderRadius.xl, padding: spacing.md, marginBottom: spacing.lg,
+    borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.lg,
+    ...shadow.sm,
   },
   pillTaken: { backgroundColor: colors.emerald100 },
-  pillPending: { backgroundColor: '#FEF3C7' },
+  pillPending: { backgroundColor: colors.secondaryFixed },
   pillIconWrap: {
-    width: 44, height: 44, borderRadius: borderRadius.md,
+    width: 46, height: 46, borderRadius: borderRadius.md,
     alignItems: 'center', justifyContent: 'center',
   },
-  pillTitle: { fontWeight: '700', fontSize: fontSize.md },
-  pillSub: { fontSize: fontSize.xs, color: colors.stone400, marginTop: 2 },
+  pillTitle: { fontWeight: fontWeight.bold, fontSize: fontSize.lg },
+  pillSub: { fontSize: fontSize.sm, color: colors.stone500, marginTop: 2 },
 
   // ── 주간 차트
   chartCard: { marginBottom: spacing.lg, padding: spacing.lg, paddingTop: spacing.md },
@@ -574,16 +576,18 @@ const styles = StyleSheet.create({
   actionGrid: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   actionCard: {
     flex: 1,
-    backgroundColor: colors.surfaceContainerHighest,
+    backgroundColor: colors.surfaceContainerLowest,
     borderRadius: borderRadius.xxl,
     padding: spacing.lg,
     gap: 6,
+    ...shadow.sm,
   },
   actionIcon: {
-    width: 44, height: 44, borderRadius: borderRadius.md,
+    width: 46, height: 46, borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryFixed,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 4,
   },
-  actionTitle: { fontSize: fontSize.md, fontWeight: '700', color: colors.onSurface },
+  actionTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.onSurface },
   actionSub: { fontSize: fontSize.xs, color: colors.stone400 },
 });

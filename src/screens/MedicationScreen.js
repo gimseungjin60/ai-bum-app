@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Animated,
   Switch,
+  Modal,
+  Pressable,
   useWindowDimensions,
 } from 'react-native';
 import {
@@ -18,14 +20,24 @@ import {
   where, getDocs,
 } from 'firebase/firestore';
 import Icon from '../components/Icon';
-import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
+import { colors, spacing, borderRadius, fontSize, fontWeight, shadow } from '../theme';
 import HapticButton from '../components/HapticButton';
 import Card from '../components/Card';
+import Screen from '../components/Screen';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useSenior } from '../contexts/SeniorContext';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+// "HH:MM"에서 시(h)/분(m)을 delta만큼 증감 (순환)
+function adjustTimeStr(t, unit, delta) {
+  let [h, m] = (t || '09:00').split(':').map(Number);
+  if (unit === 'h') h = (h + delta + 24) % 24;
+  else m = (m + delta + 60) % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 
 function toISO(date) {
   const y = date.getFullYear();
@@ -73,6 +85,7 @@ export default function MedicationScreen({ navigation }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState('');
   const [newTime, setNewTime] = useState('09:00');
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [newDosage, setNewDosage] = useState('');
   const [newNotes, setNewNotes] = useState('');
   const [newStock, setNewStock] = useState('');
@@ -309,12 +322,7 @@ export default function MedicationScreen({ navigation }) {
         </View>
 
         {/* 나머지 전체를 단일 ScrollView로 */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-        >
+        <Screen padded={false} contentStyle={{ paddingTop: 0 }}>
         {/* 잔량 부족 경고 */}
         {stockAlerts.length > 0 && (
           <View style={styles.stockBannerWrap}>
@@ -561,8 +569,50 @@ export default function MedicationScreen({ navigation }) {
             </View>
             <View style={styles.formRow}>
               <Text style={styles.formLabel}>복용 시간</Text>
-              <TextInput style={styles.formInput} placeholder="09:00" placeholderTextColor={colors.stone400} value={newTime} onChangeText={setNewTime} />
+              <HapticButton style={[styles.formInput, styles.timeInput]} onPress={() => setShowTimePicker(true)}>
+                <Icon name="Clock" size={18} color={colors.gradientStart} />
+                <Text style={styles.timeInputText}>{newTime || '시간 선택'}</Text>
+              </HapticButton>
             </View>
+
+            {/* 시간 선택 모달 (네이티브 모듈 없이 동작 — Expo Go 호환) */}
+            <Modal visible={showTimePicker} transparent animationType="fade" onRequestClose={() => setShowTimePicker(false)}>
+              <Pressable style={styles.timeOverlay} onPress={() => setShowTimePicker(false)}>
+                <Pressable style={styles.timeModalCard} onPress={() => {}}>
+                  <Text style={styles.timeModalTitle}>복용 시간 선택</Text>
+                  <View style={styles.timeStepperRow}>
+                    <View style={styles.timeCol}>
+                      <Text style={styles.timeColLabel}>시</Text>
+                      <View style={styles.timeStepperBox}>
+                        <HapticButton style={styles.stepBtn} onPress={() => setNewTime(adjustTimeStr(newTime, 'h', 1))}>
+                          <Icon name="Plus" size={20} color={colors.gradientStart} />
+                        </HapticButton>
+                        <Text style={styles.timeNum}>{(newTime || '09:00').split(':')[0]}</Text>
+                        <HapticButton style={styles.stepBtn} onPress={() => setNewTime(adjustTimeStr(newTime, 'h', -1))}>
+                          <Icon name="Minus" size={20} color={colors.gradientStart} />
+                        </HapticButton>
+                      </View>
+                    </View>
+                    <Text style={styles.timeColonBig}>:</Text>
+                    <View style={styles.timeCol}>
+                      <Text style={styles.timeColLabel}>분</Text>
+                      <View style={styles.timeStepperBox}>
+                        <HapticButton style={styles.stepBtn} onPress={() => setNewTime(adjustTimeStr(newTime, 'm', 1))}>
+                          <Icon name="Plus" size={20} color={colors.gradientStart} />
+                        </HapticButton>
+                        <Text style={styles.timeNum}>{(newTime || '09:00').split(':')[1]}</Text>
+                        <HapticButton style={styles.stepBtn} onPress={() => setNewTime(adjustTimeStr(newTime, 'm', -1))}>
+                          <Icon name="Minus" size={20} color={colors.gradientStart} />
+                        </HapticButton>
+                      </View>
+                    </View>
+                  </View>
+                  <HapticButton style={styles.timeConfirmBtn} hapticType="medium" onPress={() => setShowTimePicker(false)}>
+                    <Text style={styles.timeConfirmText}>확인</Text>
+                  </HapticButton>
+                </Pressable>
+              </Pressable>
+            </Modal>
             <View style={styles.formRow}>
               <Text style={styles.formLabel}>용량</Text>
               <TextInput style={styles.formInput} placeholder="예: 1정" placeholderTextColor={colors.stone400} value={newDosage} onChangeText={setNewDosage} />
@@ -625,7 +675,7 @@ export default function MedicationScreen({ navigation }) {
             ))
           )}
         </View>
-        </ScrollView>
+        </Screen>
       </Animated.View>
     </View>
   );
@@ -728,11 +778,25 @@ const styles = StyleSheet.create({
   formRow: { marginBottom: spacing.sm },
   formLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.stone500, marginBottom: 4 },
   formInput: { backgroundColor: colors.surfaceContainerLowest, borderRadius: borderRadius.sm, borderWidth: 1, borderColor: colors.outlineVariant, paddingHorizontal: 14, paddingVertical: 10, fontSize: fontSize.md, color: colors.onSurface },
-  formActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
-  formCancelBtn: { flex: 1, paddingVertical: 12, borderRadius: borderRadius.sm, backgroundColor: colors.surfaceContainer, alignItems: 'center' },
-  formCancelText: { fontWeight: fontWeight.semibold, color: colors.stone500 },
-  formSaveBtn: { flex: 1, paddingVertical: 12, borderRadius: borderRadius.sm, backgroundColor: colors.gradientStart, alignItems: 'center' },
-  formSaveText: { fontWeight: fontWeight.bold, color: '#FFF' },
+  timeInput: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13 },
+  timeInputText: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.onSurface },
+  timeOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', padding: spacing.lg },
+  timeModalCard: { backgroundColor: colors.surfaceContainerLowest, borderRadius: borderRadius.xxl, padding: spacing.xl, width: '100%', maxWidth: 360, ...shadow.lg },
+  timeModalTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.onSurface, textAlign: 'center', marginBottom: spacing.lg },
+  timeStepperRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: spacing.lg, marginBottom: spacing.lg },
+  timeCol: { alignItems: 'center', gap: 8 },
+  timeColLabel: { fontSize: fontSize.sm, color: colors.stone500, fontWeight: fontWeight.semibold },
+  timeStepperBox: { alignItems: 'center', backgroundColor: colors.surfaceContainerLow, borderRadius: borderRadius.lg, paddingVertical: 8, paddingHorizontal: 8, gap: 6 },
+  stepBtn: { width: 48, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: borderRadius.md, backgroundColor: colors.surfaceContainerLowest },
+  timeNum: { fontSize: 30, fontWeight: '800', color: colors.onSurface, minWidth: 60, textAlign: 'center', paddingVertical: 2 },
+  timeColonBig: { fontSize: 30, fontWeight: '800', color: colors.stone400, marginTop: 20 },
+  timeConfirmBtn: { minHeight: 54, borderRadius: borderRadius.lg, backgroundColor: colors.gradientStart, alignItems: 'center', justifyContent: 'center' },
+  timeConfirmText: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: '#FFF' },
+  formActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.lg },
+  formCancelBtn: { flex: 1, minHeight: 54, borderRadius: borderRadius.lg, backgroundColor: colors.surfaceContainerHigh, alignItems: 'center', justifyContent: 'center' },
+  formCancelText: { fontWeight: fontWeight.semibold, fontSize: fontSize.lg, color: colors.onSurfaceVariant },
+  formSaveBtn: { flex: 1, minHeight: 54, borderRadius: borderRadius.lg, backgroundColor: colors.gradientStart, alignItems: 'center', justifyContent: 'center' },
+  formSaveText: { fontWeight: fontWeight.bold, fontSize: fontSize.lg, color: '#FFF' },
 
   medList: { paddingHorizontal: spacing.lg },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 8 },

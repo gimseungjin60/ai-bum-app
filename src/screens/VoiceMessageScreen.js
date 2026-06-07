@@ -13,6 +13,7 @@ import * as FileSystem from 'expo-file-system';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize, fontWeight } from '../theme';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { api, BASE_URL } from '../services/api';
 
 export default function VoiceMessageScreen({ navigation }) {
@@ -232,7 +233,7 @@ export default function VoiceMessageScreen({ navigation }) {
         {loading ? (
           <ActivityIndicator color={colors.gradientStart} style={{ marginTop: 20 }} />
         ) : (
-          <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+          <Screen contentStyle={{ paddingTop: 0 }}>
             {messages.length === 0 ? (
               <View style={styles.empty}>
                 <Icon name="MessageCircle" size={32} color={colors.stone400} />
@@ -276,7 +277,7 @@ export default function VoiceMessageScreen({ navigation }) {
                 </HapticButton>
               ))
             )}
-          </ScrollView>
+          </Screen>
         )}
       </Animated.View>
     </View>

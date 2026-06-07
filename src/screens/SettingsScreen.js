@@ -14,6 +14,7 @@ import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, functions } from '../config/firebase';
@@ -99,11 +100,7 @@ export default function SettingsScreen({ navigation }) {
   const deviceId = pairedDevice?.deviceId || '연결 안됨';
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <Screen tabBarPad>
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Profile */}
         <View style={styles.profileRow}>
@@ -114,9 +111,9 @@ export default function SettingsScreen({ navigation }) {
                   <Text style={{ fontSize: 32 }}>👤</Text>
                 </View>
               </View>
-              <View>
-                <Text style={styles.profileName}>{user?.name || '보호자'}</Text>
-                <Text style={styles.profileSub}>{user?.email || ''}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.profileName} numberOfLines={1}>{user?.name || '보호자'}</Text>
+                <Text style={styles.profileSub} numberOfLines={1} ellipsizeMode="tail">{user?.email || ''}</Text>
               </View>
             </View>
           </Card>
@@ -266,7 +263,7 @@ export default function SettingsScreen({ navigation }) {
           </HapticButton>
         </View>
       </Animated.View>
-    </ScrollView>
+    </Screen>
   );
 }
 

@@ -8,6 +8,7 @@ export default function HapticButton({
   style,
   hapticType = 'light',
   scaleDown = 0.96,
+  hitSlop = 8,
   ...props
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -47,6 +48,7 @@ export default function HapticButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       onPress={handlePress}
+      hitSlop={hitSlop}
       {...props}
     >
       <Animated.View style={[style, { transform: [{ scale: scaleAnim }] }]}>

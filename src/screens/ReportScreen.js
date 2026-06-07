@@ -13,6 +13,7 @@ import { colors, spacing, borderRadius, fontSize } from '../theme';
 import { EMOTION_META, sortedEmotions } from '../theme/emotions';
 import Card from '../components/Card';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { useSenior } from '../contexts/SeniorContext';
 
 const TABS = ['일간', '주간'];
@@ -105,14 +106,7 @@ export default function ReportScreen() {
   const peakBlock = heatmap.reduce((max, b) => (b.opacity > max.opacity ? b : max), heatmap[0]);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.gradientStart} />
-      }
-    >
+    <Screen tabBarPad refreshing={refreshing} onRefresh={onRefresh}>
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Tab Navigation */}
         <View style={styles.tabBar}>
@@ -401,7 +395,7 @@ export default function ReportScreen() {
           </>
         )}
       </Animated.View>
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -412,14 +406,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: colors.surfaceContainerLow,
     borderRadius: 9999,
-    padding: 6,
+    padding: 5,
+    gap: 4,
     marginBottom: spacing.lg,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    minHeight: 52,
+    paddingVertical: 14,
     borderRadius: 9999,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabActive: {
     backgroundColor: colors.white,
@@ -430,8 +427,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    fontSize: fontSize.md,
-    fontWeight: '500',
+    fontSize: fontSize.lg,
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
   tabTextActive: {

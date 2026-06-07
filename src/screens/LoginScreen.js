@@ -5,6 +5,7 @@ import {
   TextInput,
   StyleSheet,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   Alert,
   ActivityIndicator,
@@ -50,7 +51,11 @@ export default function LoginScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.inner}>
+      <ScrollView
+        contentContainerStyle={styles.inner}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* 로고 영역 */}
         <View style={styles.logoSection}>
           <View style={styles.logoCircle}>
@@ -117,7 +122,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={styles.signupLink}>회원가입</Text>
           </HapticButton>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -128,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },

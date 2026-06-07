@@ -13,6 +13,7 @@ import {
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { useCollection } from '../hooks/useFirestore';
 import { useSenior } from '../contexts/SeniorContext';
 
@@ -75,7 +76,8 @@ export default function NotificationScreen({ navigation }) {
   const { isEmergency, clearEmergency } = useSenior();
 
   const { data: notifications } = useCollection('notifications', 'createdAt');
-  const notifData = notifications.length > 0 ? notifications : MOCK_NOTIFICATIONS;
+  // 실제 Firestore 알림만 표시. 데이터 없으면 빈 상태 UI(아래)로 — 목업 미사용
+  const notifData = notifications;
 
   const filteredData = (activeFilter === 0
     ? notifData
@@ -137,11 +139,7 @@ export default function NotificationScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <Screen tabBarPad>
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Header */}
         <View style={styles.header}>
@@ -294,7 +292,7 @@ export default function NotificationScreen({ navigation }) {
           </View>
         )}
       </Animated.View>
-    </ScrollView>
+    </Screen>
   );
 }
 
@@ -389,12 +387,10 @@ const styles = StyleSheet.create({
   emergencyDismissText: { color: colors.onErrorContainer, fontWeight: '600' },
 
   warningCard: {
-    backgroundColor: colors.surfaceContainerLowest,
+    backgroundColor: colors.secondaryFixed,
     borderRadius: borderRadius.xxl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
-    borderLeftWidth: 8,
-    borderLeftColor: colors.tertiary,
   },
   warningLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   warningLabel: { fontSize: fontSize.xs, fontWeight: '700', color: colors.tertiary },

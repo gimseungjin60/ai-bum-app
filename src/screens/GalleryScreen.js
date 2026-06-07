@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Icon from '../components/Icon';
 import { colors, spacing, borderRadius, fontSize } from '../theme';
 import HapticButton from '../components/HapticButton';
+import Screen from '../components/Screen';
 import { useCollection } from '../hooks/useFirestore';
 import { uploadPhotoWithNotification, togglePhotoDisplay } from '../services/photoService';
 import { useAuth } from '../contexts/AuthContext';
@@ -114,11 +115,7 @@ export default function GalleryScreen() {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <Screen tabBarPad>
       <Animated.View style={{ opacity: fadeAnim }}>
         {/* Header */}
         <View style={styles.header}>
@@ -225,7 +222,7 @@ export default function GalleryScreen() {
           </View>
         )}
       </Animated.View>
-    </ScrollView>
+    </Screen>
   );
 }
 
